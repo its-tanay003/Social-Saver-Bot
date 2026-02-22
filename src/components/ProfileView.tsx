@@ -136,7 +136,7 @@ export function ProfileView({ isOpen, onClose, currentTheme, onToggleTheme }: Pr
         initial={{ x: '100%' }}
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
-        className="w-full max-w-2xl bg-white h-full shadow-2xl overflow-y-auto"
+        className="w-full max-w-2xl bg-white dark:bg-gray-900 h-full shadow-2xl overflow-y-auto"
       >
         {/* Header Image */}
         <div className="h-48 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 relative">
@@ -152,7 +152,7 @@ export function ProfileView({ isOpen, onClose, currentTheme, onToggleTheme }: Pr
           {/* Profile Header */}
           <div className="flex justify-between items-end mb-6">
             <div className="relative group">
-              <div className="w-32 h-32 rounded-full border-4 border-white bg-gray-100 overflow-hidden shadow-lg">
+              <div className="w-32 h-32 rounded-full border-4 border-white dark:border-gray-800 bg-gray-100 dark:bg-gray-800 overflow-hidden shadow-lg">
                 {profile.avatar_config ? (
                     <img 
                       src={getAvatarUrl(profile.avatar_config)} 
@@ -182,14 +182,14 @@ export function ProfileView({ isOpen, onClose, currentTheme, onToggleTheme }: Pr
               {!isEditing ? (
                 <button 
                   onClick={() => setIsEditing(true)}
-                  className="px-4 py-2 bg-gray-100 text-gray-700 rounded-xl font-medium hover:bg-gray-200 flex items-center gap-2"
+                  className="px-4 py-2 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-xl font-medium hover:bg-gray-200 dark:hover:bg-gray-700 flex items-center gap-2 transition-colors"
                 >
                   <Edit2 size={16} /> Edit Profile
                 </button>
               ) : (
                 <button 
                   onClick={handleSave}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 flex items-center gap-2"
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-xl font-medium hover:bg-indigo-700 flex items-center gap-2 transition-all shadow-lg shadow-indigo-200 dark:shadow-indigo-900/40"
                 >
                   <Save size={16} /> Save Changes
                 </button>
@@ -205,10 +205,10 @@ export function ProfileView({ isOpen, onClose, currentTheme, onToggleTheme }: Pr
                   type="text" 
                   value={profile.full_name}
                   onChange={(e) => setProfile({...profile, full_name: e.target.value})}
-                  className="text-3xl font-bold text-gray-900 border-b-2 border-indigo-200 focus:border-indigo-600 outline-none w-full bg-transparent"
+                  className="text-3xl font-bold text-gray-900 dark:text-white border-b-2 border-indigo-200 dark:border-indigo-800 focus:border-indigo-600 outline-none w-full bg-transparent"
                 />
               ) : (
-                <h1 className="text-3xl font-bold text-gray-900">{profile.full_name}</h1>
+                <h1 className="text-3xl font-bold text-gray-900 dark:text-white">{profile.full_name}</h1>
               )}
               
               {isEditing ? (
@@ -216,17 +216,17 @@ export function ProfileView({ isOpen, onClose, currentTheme, onToggleTheme }: Pr
                   value={profile.bio}
                   onChange={(e) => setProfile({...profile, bio: e.target.value})}
                   placeholder="Tell us about yourself..."
-                  className="mt-2 text-gray-600 w-full border rounded-lg p-2 text-sm"
+                  className="mt-2 text-gray-600 dark:text-gray-400 w-full border dark:border-gray-700 rounded-lg p-2 text-sm bg-transparent"
                 />
               ) : (
-                <p className="text-gray-600 mt-1">{profile.bio || "No bio yet."}</p>
+                <p className="text-gray-600 dark:text-gray-400 mt-1">{profile.bio || "No bio yet."}</p>
               )}
             </div>
 
             {/* Avatar Customizer */}
             {isEditing && (
-              <div className="bg-indigo-50 p-6 rounded-2xl border border-indigo-100 space-y-4">
-                <h3 className="font-bold text-indigo-900 flex items-center gap-2">
+              <div className="bg-indigo-50 dark:bg-indigo-900/20 p-6 rounded-2xl border border-indigo-100 dark:border-indigo-800/50 space-y-4">
+                <h3 className="font-bold text-indigo-900 dark:text-indigo-300 flex items-center gap-2">
                   <Sparkles size={18} /> Customize 3D Avatar
                 </h3>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -236,7 +236,7 @@ export function ProfileView({ isOpen, onClose, currentTheme, onToggleTheme }: Pr
                       <select 
                         value={profile.avatar_config[key]}
                         onChange={(e) => updateAvatar(key, e.target.value)}
-                        className="w-full bg-white border border-indigo-200 rounded-lg p-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500"
+                        className="w-full bg-white dark:bg-gray-800 border border-indigo-200 dark:border-indigo-800 rounded-lg p-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
                       >
                         {options.map(opt => (
                           <option key={opt} value={opt}>{opt}</option>
@@ -251,45 +251,45 @@ export function ProfileView({ isOpen, onClose, currentTheme, onToggleTheme }: Pr
             {/* Details Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Personal Info */}
-              <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 space-y-4">
-                <h3 className="font-bold text-gray-900 flex items-center gap-2">
+              <div className="bg-gray-50 dark:bg-gray-800/50 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 space-y-4">
+                <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
                   <Shield size={18} className="text-indigo-600" /> Personal Info
                 </h3>
                 
                 <div className="space-y-3">
-                  <div className="flex items-center gap-3 text-sm text-gray-600">
+                  <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
                     <Mail size={16} />
                     {isEditing ? (
                       <input 
                         value={profile.email} 
                         onChange={(e) => setProfile({...profile, email: e.target.value})}
-                        className="bg-white border rounded px-2 py-1 w-full"
+                        className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded px-2 py-1 w-full"
                       />
                     ) : (
                       <span>{profile.email}</span>
                     )}
                   </div>
-                  <div className="flex items-center gap-3 text-sm text-gray-600">
+                  <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
                     <Phone size={16} />
                     {isEditing ? (
                       <input 
                         value={profile.phone} 
                         onChange={(e) => setProfile({...profile, phone: e.target.value})}
                         placeholder="+1 234 567 890"
-                        className="bg-white border rounded px-2 py-1 w-full"
+                        className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded px-2 py-1 w-full"
                       />
                     ) : (
                       <span>{profile.phone || "Add phone number"}</span>
                     )}
                   </div>
-                  <div className="flex items-center gap-3 text-sm text-gray-600">
+                  <div className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
                     <Calendar size={16} />
                     {isEditing ? (
                       <input 
                         type="date"
                         value={profile.dob} 
                         onChange={(e) => setProfile({...profile, dob: e.target.value})}
-                        className="bg-white border rounded px-2 py-1 w-full"
+                        className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded px-2 py-1 w-full"
                       />
                     ) : (
                       <span>{profile.dob || "Add birthday"}</span>
@@ -299,14 +299,14 @@ export function ProfileView({ isOpen, onClose, currentTheme, onToggleTheme }: Pr
               </div>
 
               {/* Social Links */}
-              <div className="bg-gray-50 p-6 rounded-2xl border border-gray-100 space-y-4">
-                <h3 className="font-bold text-gray-900 flex items-center gap-2">
+              <div className="bg-gray-50 dark:bg-gray-800/50 p-6 rounded-2xl border border-gray-100 dark:border-gray-700 space-y-4">
+                <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
                   <Globe size={18} className="text-indigo-600" /> Social Links
                 </h3>
                 
                 <div className="space-y-3">
                   {['instagram', 'twitter', 'linkedin', 'github'].map((platform) => (
-                    <div key={platform} className="flex items-center gap-3 text-sm text-gray-600">
+                    <div key={platform} className="flex items-center gap-3 text-sm text-gray-600 dark:text-gray-400">
                       <span className="capitalize w-20 font-medium">{platform}</span>
                       {isEditing ? (
                         <input 
@@ -316,10 +316,10 @@ export function ProfileView({ isOpen, onClose, currentTheme, onToggleTheme }: Pr
                             social_links: { ...profile.social_links, [platform]: e.target.value }
                           })}
                           placeholder={`Your ${platform} username`}
-                          className="bg-white border rounded px-2 py-1 w-full"
+                          className="bg-white dark:bg-gray-800 border dark:border-gray-700 rounded px-2 py-1 w-full"
                         />
                       ) : (
-                        <span className={profile.social_links[platform] ? 'text-indigo-600' : 'text-gray-400'}>
+                        <span className={profile.social_links[platform] ? 'text-indigo-600' : 'text-gray-400 dark:text-gray-500'}>
                           {profile.social_links[platform] || "Not connected"}
                         </span>
                       )}
@@ -332,39 +332,39 @@ export function ProfileView({ isOpen, onClose, currentTheme, onToggleTheme }: Pr
             {/* Friends & Privacy */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                {/* Friends */}
-               <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm">
+               <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm">
                   <div className="flex justify-between items-center mb-4">
-                    <h3 className="font-bold text-gray-900 flex items-center gap-2">
+                    <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
                       <UserPlus size={18} className="text-green-600" /> Friends
                     </h3>
-                    <button className="text-xs text-indigo-600 font-medium hover:underline">Find Friends</button>
+                    <button className="text-xs text-indigo-600 dark:text-indigo-400 font-medium hover:underline">Find Friends</button>
                   </div>
                   <div className="flex -space-x-2 overflow-hidden mb-4">
                     {friends.map(friend => (
                       <img 
                         key={friend.id}
-                        className="inline-block h-10 w-10 rounded-full ring-2 ring-white"
+                        className="inline-block h-10 w-10 rounded-full ring-2 ring-white dark:ring-gray-800"
                         src={friend.avatar}
                         alt={friend.name}
                       />
                     ))}
-                    <div className="h-10 w-10 rounded-full bg-gray-100 flex items-center justify-center text-xs text-gray-500 ring-2 ring-white">
+                    <div className="h-10 w-10 rounded-full bg-gray-100 dark:bg-gray-700 flex items-center justify-center text-xs text-gray-500 dark:text-gray-400 ring-2 ring-white dark:ring-gray-800">
                       +5
                     </div>
                   </div>
-                  <button className="w-full py-2 border border-gray-200 rounded-xl text-sm font-medium text-gray-600 hover:bg-gray-50">
+                  <button className="w-full py-2 border border-gray-200 dark:border-gray-700 rounded-xl text-sm font-medium text-gray-600 dark:text-gray-400 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors">
                     Invite Friends
                   </button>
                </div>
 
                {/* Settings */}
-               <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-sm space-y-4">
-                  <h3 className="font-bold text-gray-900 flex items-center gap-2">
-                    <Settings size={18} className="text-gray-600" /> Settings
+               <div className="bg-white dark:bg-gray-800 p-6 rounded-2xl border border-gray-200 dark:border-gray-700 shadow-sm space-y-4">
+                  <h3 className="font-bold text-gray-900 dark:text-white flex items-center gap-2">
+                    <Settings size={18} className="text-gray-600 dark:text-gray-400" /> Settings
                   </h3>
                   
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-sm text-gray-700">
+                    <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                       {profile.is_public ? <Unlock size={16} /> : <Lock size={16} />}
                       <span>Profile Privacy</span>
                     </div>
@@ -372,32 +372,32 @@ export function ProfileView({ isOpen, onClose, currentTheme, onToggleTheme }: Pr
                       <button 
                         onClick={() => setProfile({...profile, is_public: !profile.is_public})}
                         className={`px-3 py-1 rounded-full text-xs font-bold ${
-                          profile.is_public ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-700'
+                          profile.is_public ? 'bg-green-100 dark:bg-green-900/30 text-green-700 dark:text-green-400' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-400'
                         }`}
                       >
                         {profile.is_public ? 'Public' : 'Private'}
                       </button>
                     ) : (
-                      <span className="text-xs text-gray-500">{profile.is_public ? 'Public' : 'Private'}</span>
+                      <span className="text-xs text-gray-500 dark:text-gray-400">{profile.is_public ? 'Public' : 'Private'}</span>
                     )}
                   </div>
 
                   <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2 text-sm text-gray-700">
+                    <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
                       {currentTheme === 'dark' ? <Moon size={16} /> : <Sun size={16} />}
                       <span>Appearance</span>
                     </div>
                     <button 
                       onClick={onToggleTheme}
-                      className="text-xs text-indigo-600 font-medium hover:underline"
+                      className="text-xs text-indigo-600 dark:text-indigo-400 font-medium hover:underline"
                     >
                       Toggle Theme
                     </button>
                   </div>
 
-                  <hr className="border-gray-100" />
+                  <hr className="border-gray-100 dark:border-gray-700" />
 
-                  <button className="w-full flex items-center justify-center gap-2 text-red-500 text-sm font-medium hover:bg-red-50 py-2 rounded-lg transition-colors">
+                  <button className="w-full flex items-center justify-center gap-2 text-red-500 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-900/20 py-2 rounded-lg transition-colors">
                     <LogOut size={16} /> Log Out
                   </button>
                </div>

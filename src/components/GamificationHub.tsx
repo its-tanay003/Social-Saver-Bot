@@ -19,8 +19,9 @@ interface UserStats {
 
 interface GamificationHubProps {
   stats: UserStats;
-  isOpen: boolean;
-  onClose: () => void;
+  isOpen?: boolean;
+  onClose?: () => void;
+  isFullPage?: boolean;
 }
 
 const iconMap: Record<string, any> = {
@@ -30,87 +31,103 @@ const iconMap: Record<string, any> = {
   flame: Flame
 };
 
-export function GamificationHub({ stats, isOpen, onClose }: GamificationHubProps) {
-  if (!isOpen) return null;
+export function GamificationHub({ stats, isOpen, onClose, isFullPage = false }: GamificationHubProps) {
+  if (!isFullPage && !isOpen) return null;
 
   const progress = (stats.points % 100); // Simple level logic
 
+  const content = (
+    <div className={`${isFullPage ? 'w-full' : 'w-full max-w-md bg-white dark:bg-gray-800 h-full shadow-2xl p-6 overflow-y-auto'}`}>
+      <div className="flex justify-between items-center mb-8">
+        <h2 className="text-2xl font-black flex items-center gap-2 text-gray-900 dark:text-white uppercase tracking-tighter">
+          <Trophy className="text-yellow-500" /> Achievements
+        </h2>
+        {!isFullPage && onClose && (
+          <button onClick={onClose} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">Close</button>
+        )}
+      </div>
+
+      {/* Level Card */}
+      <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-[2.5rem] p-8 text-white mb-8 shadow-xl relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-48 h-48 bg-white/10 rounded-full -mr-16 -mt-16 blur-3xl" />
+        
+        <div className="flex justify-between items-end mb-6">
+          <div>
+            <p className="text-indigo-100 font-bold uppercase tracking-widest text-[10px] mb-2">Current Level</p>
+            <h3 className="text-6xl font-black tracking-tighter">{stats.level}</h3>
+          </div>
+          <div className="text-right">
+            <p className="text-3xl font-black tracking-tighter">{stats.points}</p>
+            <p className="text-indigo-100 font-bold uppercase tracking-widest text-[10px]">Total Points</p>
+          </div>
+        </div>
+
+        <div className="relative h-4 bg-black/20 rounded-full overflow-hidden">
+          <motion.div 
+            initial={{ width: 0 }}
+            animate={{ width: `${progress}%` }}
+            className="absolute top-0 left-0 h-full bg-yellow-400 rounded-full shadow-[0_0_15px_rgba(250,204,21,0.5)]"
+          />
+        </div>
+        <p className="text-[10px] font-bold text-indigo-100 mt-3 text-right uppercase tracking-widest">{100 - progress} points to next level</p>
+      </div>
+
+      {/* Streak */}
+      <div className="flex items-center gap-6 bg-orange-50 dark:bg-orange-900/10 p-6 rounded-[2rem] border border-orange-100 dark:border-orange-900/20 mb-8">
+        <div className="w-14 h-14 bg-orange-100 dark:bg-orange-900/30 rounded-2xl flex items-center justify-center shadow-inner">
+          <Flame className="text-orange-500" size={28} />
+        </div>
+        <div>
+          <h4 className="font-black text-gray-900 dark:text-white uppercase tracking-tighter text-lg">{stats.streak_days} Day Streak</h4>
+          <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Keep saving daily to maintain your momentum!</p>
+        </div>
+      </div>
+
+      {/* Badges */}
+      <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest mb-6 px-2">Unlocked Badges</h3>
+      <div className={`grid ${isFullPage ? 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4' : 'grid-cols-2'} gap-4`}>
+        {stats.badges.map((badge) => {
+          const Icon = iconMap[badge.icon] || Star;
+          return (
+            <motion.div 
+              key={badge.id}
+              whileHover={badge.earned ? { y: -5, scale: 1.02 } : {}}
+              className={`p-6 rounded-[2rem] border-2 flex flex-col items-center text-center transition-all ${
+                badge.earned 
+                  ? 'border-yellow-400 bg-yellow-50 dark:bg-yellow-900/10 shadow-lg shadow-yellow-100 dark:shadow-none' 
+                  : 'border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-900/20 opacity-40 grayscale'
+              }`}
+            >
+              <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 shadow-inner ${
+                badge.earned ? 'bg-yellow-100 dark:bg-yellow-900/30 text-yellow-600 dark:text-yellow-400' : 'bg-gray-200 dark:bg-gray-700 text-gray-400'
+              }`}>
+                <Icon size={32} />
+              </div>
+              <h4 className="font-black text-gray-900 dark:text-white text-sm mb-1 uppercase tracking-tight">{badge.name}</h4>
+              <p className="text-[10px] text-gray-500 dark:text-gray-400 font-medium leading-tight">{badge.description}</p>
+              {badge.earned && (
+                <div className="mt-4 px-3 py-1 bg-yellow-400 text-yellow-900 text-[8px] font-black uppercase tracking-widest rounded-full">
+                  UNLOCKED
+                </div>
+              )}
+            </motion.div>
+          );
+        })}
+      </div>
+    </div>
+  );
+
+  if (isFullPage) return content;
+
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex justify-end">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex justify-end">
       <motion.div 
         initial={{ x: '100%' }}
         animate={{ x: 0 }}
         exit={{ x: '100%' }}
-        className="w-full max-w-md bg-white h-full shadow-2xl p-6 overflow-y-auto"
+        className="w-full max-w-md bg-white dark:bg-gray-800 h-full shadow-2xl p-6 overflow-y-auto"
       >
-        <div className="flex justify-between items-center mb-8">
-          <h2 className="text-2xl font-bold flex items-center gap-2">
-            <Trophy className="text-yellow-500" /> Achievements
-          </h2>
-          <button onClick={onClose} className="text-gray-500 hover:text-gray-700">Close</button>
-        </div>
-
-        {/* Level Card */}
-        <div className="bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl p-6 text-white mb-8 shadow-lg relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-10 -mt-10 blur-2xl" />
-          
-          <div className="flex justify-between items-end mb-4">
-            <div>
-              <p className="text-indigo-100 font-medium mb-1">Current Level</p>
-              <h3 className="text-4xl font-bold">{stats.level}</h3>
-            </div>
-            <div className="text-right">
-              <p className="text-2xl font-bold">{stats.points}</p>
-              <p className="text-indigo-100 text-sm">Total Points</p>
-            </div>
-          </div>
-
-          <div className="relative h-3 bg-black/20 rounded-full overflow-hidden">
-            <motion.div 
-              initial={{ width: 0 }}
-              animate={{ width: `${progress}%` }}
-              className="absolute top-0 left-0 h-full bg-yellow-400 rounded-full"
-            />
-          </div>
-          <p className="text-xs text-indigo-100 mt-2 text-right">{100 - progress} points to next level</p>
-        </div>
-
-        {/* Streak */}
-        <div className="flex items-center gap-4 bg-orange-50 p-4 rounded-xl border border-orange-100 mb-8">
-          <div className="w-12 h-12 bg-orange-100 rounded-full flex items-center justify-center">
-            <Flame className="text-orange-500" size={24} />
-          </div>
-          <div>
-            <h4 className="font-bold text-gray-900">{stats.streak_days} Day Streak</h4>
-            <p className="text-sm text-gray-500">Keep saving daily to maintain it!</p>
-          </div>
-        </div>
-
-        {/* Badges */}
-        <h3 className="text-lg font-bold mb-4">Badges</h3>
-        <div className="grid grid-cols-2 gap-4">
-          {stats.badges.map((badge) => {
-            const Icon = iconMap[badge.icon] || Star;
-            return (
-              <div 
-                key={badge.id}
-                className={`p-4 rounded-xl border-2 flex flex-col items-center text-center transition-all ${
-                  badge.earned 
-                    ? 'border-yellow-400 bg-yellow-50' 
-                    : 'border-gray-100 bg-gray-50 opacity-60 grayscale'
-                }`}
-              >
-                <div className={`w-12 h-12 rounded-full flex items-center justify-center mb-3 ${
-                  badge.earned ? 'bg-yellow-100 text-yellow-600' : 'bg-gray-200 text-gray-400'
-                }`}>
-                  <Icon size={24} />
-                </div>
-                <h4 className="font-bold text-sm mb-1">{badge.name}</h4>
-                <p className="text-xs text-gray-500">{badge.description}</p>
-              </div>
-            );
-          })}
-        </div>
+        {content}
       </motion.div>
     </div>
   );

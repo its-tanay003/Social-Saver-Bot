@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ExternalLink, Tag, Wand2, Heart, MessageCircle, Share2, MoreHorizontal, MapPin, Loader2, Globe } from 'lucide-react';
+import { ExternalLink, Tag, Wand2, Heart, MessageCircle, Share2, MoreHorizontal, MapPin, Loader2, Globe, X, Copy, Trash2, StickyNote, Eye, Sparkles } from 'lucide-react';
 
 interface Item {
   id: number;
@@ -13,18 +13,46 @@ interface Item {
   media_url: string | null;
   location_data?: string; // JSON string
   remix_url?: string;
+  is_favorite?: boolean;
+  notes?: string;
+  view_count?: number;
 }
 
 interface ItemCardProps {
   item: Item;
   onRemix: (item: Item) => void;
+  onUpdate: (id: number, updates: Partial<Item>) => void;
+  onDelete: (id: number) => void;
 }
 
-export function ItemCard({ item, onRemix }: ItemCardProps) {
+export function ItemCard({ item, onRemix, onUpdate, onDelete }: ItemCardProps) {
   const [locating, setLocating] = useState(false);
+  const [showNotes, setShowNotes] = useState(false);
+  const [noteValue, setNoteValue] = useState(item.notes || '');
   const [locationInfo, setLocationInfo] = useState<any>(item.location_data ? JSON.parse(item.location_data) : null);
+  const [isRemixingImage, setIsRemixingImage] = useState(false);
+  const [remixImagePrompt, setRemixImagePrompt] = useState('');
   const tags = JSON.parse(item.tags || '[]');
   const isVideo = item.url.includes('tiktok') || item.url.includes('youtube') || item.url.includes('reel') || item.type === 'video';
+
+  const handleToggleFavorite = () => {
+    onUpdate(item.id, { is_favorite: !item.is_favorite });
+  };
+
+  const handleSaveNote = () => {
+    onUpdate(item.id, { notes: noteValue });
+    setShowNotes(false);
+  };
+
+  const handleCopyLink = () => {
+    navigator.clipboard.writeText(item.url);
+    // Could add a toast here
+  };
+
+  const handleView = () => {
+    onUpdate(item.id, { view_count: (item.view_count || 0) + 1 });
+    window.open(item.url, '_blank');
+  };
 
   const handleLocate = async () => {
     if (locationInfo) {
@@ -48,6 +76,28 @@ export function ItemCard({ item, onRemix }: ItemCardProps) {
     }
   };
 
+  const handleRemixImage = async () => {
+    if (!remixImagePrompt) return;
+    setIsRemixingImage(true);
+    try {
+        const res = await fetch('/api/edit-image', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ imageUrl: item.media_url, prompt: remixImagePrompt })
+        });
+        const data = await res.json();
+        if (data.imageUrl) {
+            onUpdate(item.id, { media_url: data.imageUrl });
+            setIsRemixingImage(false);
+            setRemixImagePrompt('');
+        }
+    } catch (error) {
+        console.error("Image Remix Error:", error);
+    } finally {
+        setIsRemixingImage(false);
+    }
+  };
+
   return (
     <motion.div
       layout
@@ -56,32 +106,36 @@ export function ItemCard({ item, onRemix }: ItemCardProps) {
       whileHover={{ scale: 1.02, y: -5 }}
       exit={{ opacity: 0, scale: 0.9 }}
       transition={{ duration: 0.2 }}
-      className="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-2xl transition-all group relative"
+      className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-2xl transition-all group relative"
     >
       {/* Header */}
       <div className="p-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
             <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold ${
                 item.source === 'instagram' ? 'bg-gradient-to-tr from-yellow-400 via-red-500 to-purple-500' : 
-                item.source === 'twitter' ? 'bg-blue-400' : 'bg-gray-800'
+                item.source === 'twitter' ? 'bg-blue-400' : 'bg-gray-800 dark:bg-gray-700'
             }`}>
                 {item.source[0].toUpperCase()}
             </div>
             <div>
-                <p className="text-sm font-semibold text-gray-900 capitalize">{item.source}</p>
-                <p className="text-[10px] text-gray-500">Saved just now</p>
+                <p className="text-sm font-semibold text-gray-900 dark:text-white capitalize">{item.source}</p>
+                <p className="text-[10px] text-gray-500 dark:text-gray-400">Saved just now</p>
             </div>
         </div>
         <div className="flex gap-2">
             <button 
                 onClick={handleLocate}
-                className={`p-2 rounded-full transition-colors ${locationInfo ? 'bg-indigo-100 text-indigo-600' : 'text-gray-400 hover:text-indigo-600 hover:bg-indigo-50'}`}
+                className={`p-2 rounded-full transition-colors ${locationInfo ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400' : 'text-gray-400 dark:text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20'}`}
                 title="Locate this place"
             >
                 {locating ? <Loader2 size={18} className="animate-spin" /> : <MapPin size={18} />}
             </button>
-            <button className="text-gray-400 hover:text-gray-600 p-2">
-                <MoreHorizontal size={18} />
+            <button 
+                onClick={() => onDelete(item.id)}
+                className="text-gray-400 dark:text-gray-500 hover:text-red-500 p-2 transition-colors"
+                title="Delete item"
+            >
+                <Trash2 size={18} />
             </button>
         </div>
       </div>
@@ -118,47 +172,88 @@ export function ItemCard({ item, onRemix }: ItemCardProps) {
                     initial={{ opacity: 0, y: 100 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 100 }}
-                    className="absolute inset-0 bg-indigo-900/90 backdrop-blur-md p-6 text-white flex flex-col justify-center z-10"
+                    className="absolute inset-0 bg-indigo-900/95 dark:bg-gray-900/95 backdrop-blur-md p-6 text-white flex flex-col z-10 overflow-y-auto scrollbar-hide"
                 >
-                    <div className="flex items-center gap-2 mb-2 text-indigo-300">
-                        <Globe size={16} />
-                        <span className="text-[10px] font-bold uppercase tracking-widest">Location Found</span>
+                    <div className="flex items-center justify-between mb-4">
+                        <div className="flex items-center gap-2 text-indigo-300">
+                            <Globe size={16} />
+                            <span className="text-[10px] font-bold uppercase tracking-widest">Location Found</span>
+                        </div>
+                        <button 
+                            onClick={() => setLocationInfo(null)}
+                            className="text-white/50 hover:text-white p-1"
+                        >
+                            <X size={20} />
+                        </button>
                     </div>
-                    <h4 className="text-lg font-bold mb-2">Google Maps Insight</h4>
-                    <p className="text-xs text-indigo-100 leading-relaxed mb-4 line-clamp-6">
-                        {locationInfo.text}
-                    </p>
-                    <div className="flex gap-2">
-                        {locationInfo.earth_link && (
-                            <a 
-                                href={locationInfo.earth_link}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="text-[10px] bg-indigo-500 hover:bg-indigo-600 px-3 py-1.5 rounded-lg font-bold transition-colors flex items-center gap-1 shadow-lg"
-                            >
-                                <Globe size={12} /> View in 3D
-                            </a>
-                        )}
-                        {locationInfo.grounding?.map((chunk: any, i: number) => (
-                            chunk.web && (
+
+                    <div className="mb-4">
+                        <h4 className="text-lg font-bold mb-1">Google Maps Insight</h4>
+                        <div className="h-1 w-12 bg-indigo-500 rounded-full mb-3"></div>
+                        <p className="text-xs text-indigo-100 leading-relaxed line-clamp-4 mb-4">
+                            {locationInfo.text}
+                        </p>
+                    </div>
+
+                    {/* Map Preview Placeholder */}
+                    <div className="relative w-full aspect-video bg-gray-800 rounded-xl overflow-hidden mb-4 border border-white/10 group/map">
+                        <img 
+                            src={`https://picsum.photos/seed/${encodeURIComponent(locationInfo.text.substring(0, 10))}/400/200?blur=2`} 
+                            alt="Map Preview" 
+                            className="w-full h-full object-cover opacity-50"
+                        />
+                        <div className="absolute inset-0 flex flex-col items-center justify-center">
+                            <MapPin size={32} className="text-indigo-400 mb-2 animate-bounce" />
+                            <span className="text-[10px] font-bold uppercase tracking-widest text-indigo-200">Interactive Map Preview</span>
+                        </div>
+                        <a 
+                            href={`https://www.google.com/maps/search/${encodeURIComponent(item.summary)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="absolute inset-0 bg-indigo-600/0 group-hover/map:bg-indigo-600/20 transition-colors flex items-center justify-center"
+                        >
+                            <span className="opacity-0 group-hover/map:opacity-100 bg-white text-indigo-600 px-3 py-1 rounded-full text-[10px] font-bold transition-opacity">OPEN IN MAPS</span>
+                        </a>
+                    </div>
+
+                    <div className="mt-auto space-y-2">
+                        <div className="flex flex-wrap gap-2">
+                            {locationInfo.earth_link && (
                                 <a 
-                                    key={i}
-                                    href={chunk.web.uri}
+                                    href={locationInfo.earth_link}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="text-[10px] bg-white/20 hover:bg-white/30 px-2 py-1.5 rounded-lg transition-colors flex items-center"
+                                    className="flex-1 text-[10px] bg-indigo-500 hover:bg-indigo-600 px-3 py-2.5 rounded-xl font-bold transition-all flex items-center justify-center gap-2 shadow-lg active:scale-95"
                                 >
-                                    Source {i + 1}
+                                    <Globe size={14} /> View in 3D
                                 </a>
-                            )
-                        ))}
+                            )}
+                            <a 
+                                href={`https://www.google.com/maps/search/${encodeURIComponent(item.summary)}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="flex-1 text-[10px] bg-white/10 hover:bg-white/20 px-3 py-2.5 rounded-xl font-bold transition-all flex items-center justify-center gap-2 backdrop-blur-sm active:scale-95"
+                            >
+                                <MapPin size={14} /> Directions
+                            </a>
+                        </div>
+                        
+                        <div className="flex flex-wrap gap-1.5 pt-2">
+                            {locationInfo.grounding?.map((chunk: any, i: number) => (
+                                chunk.web && (
+                                    <a 
+                                        key={i}
+                                        href={chunk.web.uri}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-[9px] bg-white/5 hover:bg-white/10 px-2 py-1 rounded-md transition-colors flex items-center gap-1 border border-white/10"
+                                    >
+                                        <ExternalLink size={10} /> {chunk.web.title?.substring(0, 15) || `Source ${i + 1}`}...
+                                    </a>
+                                )
+                            ))}
+                        </div>
                     </div>
-                    <button 
-                        onClick={() => setLocationInfo(null)}
-                        className="absolute top-4 right-4 text-white/50 hover:text-white"
-                    >
-                        <Tag size={18} className="rotate-45" />
-                    </button>
                 </motion.div>
             )}
         </AnimatePresence>
@@ -174,39 +269,104 @@ export function ItemCard({ item, onRemix }: ItemCardProps) {
                         <Wand2 size={16} className="text-purple-600" /> Remix
                     </button>
                 )}
-                <a 
-                    href={item.url} 
-                    target="_blank" 
-                    rel="noopener noreferrer"
+                <button 
+                    onClick={handleView}
                     className="bg-white/20 text-white border border-white/50 px-5 py-2.5 rounded-full text-sm font-bold flex items-center gap-2 hover:bg-white hover:text-black transition-all backdrop-blur-md"
                 >
                     <ExternalLink size={16} /> Open
-                </a>
+                </button>
             </div>
         )}
       </div>
 
+      {/* Remix Image UI */}
+      {item.media_url && !item.url.includes('instagram') && !isVideo && (
+        <div className="px-4 py-3 bg-gray-50 dark:bg-gray-900/50 border-b border-gray-50 dark:border-gray-700">
+            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">AI Image Remix</p>
+            <div className="flex gap-2">
+                <input 
+                    type="text" 
+                    value={remixImagePrompt}
+                    onChange={(e) => setRemixImagePrompt(e.target.value)}
+                    placeholder="Add a llama next to it..."
+                    className="flex-1 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-xl px-3 py-2 text-xs outline-none focus:ring-2 focus:ring-indigo-500 dark:text-white"
+                />
+                <button 
+                    onClick={handleRemixImage}
+                    disabled={isRemixingImage || !remixImagePrompt}
+                    className="bg-indigo-600 text-white px-4 py-2 rounded-xl text-xs font-bold disabled:opacity-50 flex items-center gap-2"
+                >
+                    {isRemixingImage ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
+                    Remix
+                </button>
+            </div>
+        </div>
+      )}
+
       {/* Action Bar */}
-      <div className="px-4 py-3 flex items-center justify-between border-b border-gray-50">
-        <div className="flex items-center gap-4 text-gray-600">
-            <Heart size={22} className="hover:text-red-500 cursor-pointer transition-colors" />
-            <MessageCircle size={22} className="hover:text-blue-500 cursor-pointer transition-colors" />
-            <Share2 size={22} className="hover:text-green-500 cursor-pointer transition-colors" />
+      <div className="px-4 py-3 flex items-center justify-between border-b border-gray-50 dark:border-gray-700">
+        <div className="flex items-center gap-4 text-gray-600 dark:text-gray-400">
+            <button onClick={handleToggleFavorite} className="transition-colors">
+                <Heart size={22} className={item.is_favorite ? 'fill-red-500 text-red-500' : 'hover:text-red-500'} />
+            </button>
+            <button onClick={() => setShowNotes(!showNotes)} className="transition-colors">
+                <StickyNote size={22} className={item.notes ? 'text-indigo-500' : 'hover:text-indigo-500'} />
+            </button>
+            <button onClick={handleCopyLink} className="transition-colors">
+                <Copy size={20} className="hover:text-green-500" />
+            </button>
+        </div>
+        <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+            <Eye size={12} />
+            {item.view_count || 0} views
         </div>
       </div>
 
+      {/* Notes Area */}
+      <AnimatePresence>
+        {showNotes && (
+            <motion.div 
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="px-4 py-3 bg-indigo-50/50 dark:bg-indigo-900/10 border-b border-gray-50 dark:border-gray-700 overflow-hidden"
+            >
+                <textarea 
+                    value={noteValue}
+                    onChange={(e) => setNoteValue(e.target.value)}
+                    placeholder="Add your thoughts about this item..."
+                    className="w-full bg-transparent text-sm text-gray-700 dark:text-gray-300 outline-none resize-none min-h-[60px]"
+                />
+                <div className="flex justify-end mt-2">
+                    <button 
+                        onClick={handleSaveNote}
+                        className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest hover:underline"
+                    >
+                        Save Note
+                    </button>
+                </div>
+            </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* Content */}
       <div className="p-4 pt-3">
-        <p className="text-gray-800 text-sm leading-relaxed mb-3 line-clamp-3">
+        <p className="text-gray-800 dark:text-gray-200 text-sm leading-relaxed mb-3 line-clamp-3">
             <span className="font-semibold mr-2">AI Summary:</span>
             {item.summary || item.content}
         </p>
 
         <div className="flex flex-wrap gap-1.5 mt-3">
           {tags.map((tag: string, i: number) => (
-            <span key={i} className="text-[10px] font-semibold px-2.5 py-1 bg-gray-100 text-gray-600 rounded-lg hover:bg-gray-200 transition-colors cursor-default">
+            <motion.span 
+              key={i}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.1 + (i * 0.05), duration: 0.3 }}
+              className="text-[10px] font-semibold px-2.5 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors cursor-default"
+            >
               #{tag}
-            </span>
+            </motion.span>
           ))}
         </div>
       </div>

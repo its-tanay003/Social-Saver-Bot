@@ -1,5 +1,5 @@
 {
   "name": "Social Saver",
-  "description": "Turn your social media saves into a searchable knowledge base. Features WhatsApp integration simulation, AI auto-tagging, and content remixing.",
+  "description": "A powerful digital brain that turns your social media saves into a searchable knowledge base. Features AI-powered insights, mood-based discovery, WhatsApp simulation, and creative content remixing.",
   "requestFramePermissions": ["microphone"]
 }

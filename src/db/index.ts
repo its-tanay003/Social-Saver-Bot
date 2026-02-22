@@ -23,6 +23,9 @@ const schema = `
     vibe TEXT,
     location_data TEXT,
     media_url TEXT,
+    is_favorite BOOLEAN DEFAULT 0,
+    notes TEXT,
+    view_count INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 
@@ -31,6 +34,7 @@ const schema = `
     name TEXT NOT NULL,
     icon TEXT DEFAULT 'folder',
     color TEXT DEFAULT 'blue',
+    description TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
 

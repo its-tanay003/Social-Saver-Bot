@@ -10,9 +10,10 @@ import { InsightsPanel } from './InsightsPanel';
 import { CollectionsList } from './CollectionsList';
 import { ProfileView } from './ProfileView';
 import { DigestModal } from './DigestModal';
-import { Search, Filter, Loader2, Sparkles, X, Menu, Dice5, Trophy, Plus, LayoutGrid, Activity, Moon, Sun, User, Newspaper } from 'lucide-react';
+import { Search, Filter, Loader2, Sparkles, X, Menu, Dice5, Trophy, Plus, LayoutGrid, Activity, Moon, Sun, User, Newspaper, Hash, Folder, Heart } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { themes } from '../lib/theme';
+import { TagManager } from './TagManager';
 
 interface Item {
   id: number;
@@ -24,6 +25,9 @@ interface Item {
   content: string;
   vibe: string;
   media_url: string | null;
+  is_favorite?: boolean;
+  notes?: string;
+  view_count?: number;
 }
 
 export function Dashboard() {
@@ -51,7 +55,20 @@ export function Dashboard() {
   const [userStats, setUserStats] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
   const [currentTheme, setCurrentTheme] = useState('default');
-  const [viewMode, setViewMode] = useState<'grid' | 'insights'>('grid');
+  const [viewMode, setViewMode] = useState<'grid' | 'insights' | 'tags' | 'collections' | 'achievements'>('grid');
+  const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
+  const [selectedMood, setSelectedMood] = useState<string | null>(null);
+  const [selectedCollectionId, setSelectedCollectionId] = useState<number | null>(null);
+  const [collectionItems, setCollectionItems] = useState<number[]>([]);
+
+  const moods = [
+    { id: 'inspired', label: 'Inspired', icon: '💡', color: 'bg-yellow-100 text-yellow-700' },
+    { id: 'productive', label: 'Productive', icon: '🚀', color: 'bg-blue-100 text-blue-700' },
+    { id: 'relaxed', label: 'Relaxed', icon: '☕', color: 'bg-green-100 text-green-700' },
+    { id: 'adventurous', label: 'Adventurous', icon: '✈️', color: 'bg-orange-100 text-orange-700' },
+    { id: 'creative', label: 'Creative', icon: '🎨', color: 'bg-purple-100 text-purple-700' },
+    { id: 'curious', label: 'Curious', icon: '👁️', color: 'bg-indigo-100 text-indigo-700' },
+  ];
 
   const getAvatarUrl = (config: any) => {
     const params = new URLSearchParams({
@@ -143,6 +160,24 @@ export function Dashboard() {
     }
   };
 
+  const fetchCollectionItems = async (id: number) => {
+    try {
+        const res = await fetch(`/api/collections/${id}/items`);
+        const data = await res.json();
+        setCollectionItems(data.map((i: any) => i.item_id));
+    } catch (error) {
+        console.error("Failed to fetch collection items", error);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedCollectionId) {
+        fetchCollectionItems(selectedCollectionId);
+    } else {
+        setCollectionItems([]);
+    }
+  }, [selectedCollectionId]);
+
   useEffect(() => {
     fetchItems();
     fetchUserData();
@@ -154,12 +189,12 @@ export function Dashboard() {
     await saveItem(url, text);
   };
 
-  const saveItem = async (url: string, content: string) => {
+  const saveItem = async (url: string, content: string, mood?: string) => {
     try {
       const res = await fetch('/api/items', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url, content })
+        body: JSON.stringify({ url, content, mood })
       });
       
       if (res.ok) {
@@ -182,12 +217,12 @@ export function Dashboard() {
     }
   };
 
-  const handleCreateCollection = async (name: string, color: string) => {
+  const handleCreateCollection = async (name: string, color: string, description: string) => {
     try {
         await fetch('/api/collections', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name, color, icon: 'folder' })
+            body: JSON.stringify({ name, color, description, icon: 'folder' })
         });
         fetchExtras();
     } catch (error) {
@@ -261,19 +296,82 @@ export function Dashboard() {
     });
   };
 
+  const handleUpdateItem = async (id: number, updates: any) => {
+    try {
+      const res = await fetch(`/api/items/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      if (res.ok) {
+        setItems(prev => prev.map(item => item.id === id ? { ...item, ...updates } : item));
+      }
+    } catch (error) {
+      console.error("Failed to update item", error);
+    }
+  };
+
+  const handleDeleteItem = async (id: number) => {
+    if (!confirm("Are you sure you want to delete this item?")) return;
+    try {
+      const res = await fetch(`/api/items/${id}`, { method: 'DELETE' });
+      if (res.ok) {
+        setItems(prev => prev.filter(item => item.id !== id));
+        confetti();
+      }
+    } catch (error) {
+      console.error("Failed to delete item", error);
+    }
+  };
+
+  const handleExport = (format: 'json' | 'csv') => {
+    const dataToExport = filteredItems;
+    if (format === 'json') {
+      const blob = new Blob([JSON.stringify(dataToExport, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `social-saver-export-${new Date().toISOString()}.json`;
+      a.click();
+    } else {
+      const headers = ['id', 'url', 'source', 'type', 'summary', 'tags', 'vibe', 'is_favorite', 'notes', 'view_count'];
+      const csvRows = [
+        headers.join(','),
+        ...dataToExport.map(item => headers.map(h => JSON.stringify((item as any)[h] || '')).join(','))
+      ];
+      const blob = new Blob([csvRows.join('\n')], { type: 'text/csv' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `social-saver-export-${new Date().toISOString()}.csv`;
+      a.click();
+    }
+  };
+
   const filteredItems = items.filter(item => {
     const matchesSearch = item.summary?.toLowerCase().includes(search.toLowerCase()) || 
                           item.tags?.toLowerCase().includes(search.toLowerCase());
-    const matchesFilter = filter === 'all' || item.type === filter || (filter === 'mood' && item.vibe);
-    return matchesSearch && matchesFilter;
+    const matchesFilter = filter === 'all' || item.type === filter;
+    const matchesMood = !selectedMood || item.vibe?.toLowerCase().includes(selectedMood.toLowerCase());
+    const matchesFavorite = !showFavoritesOnly || item.is_favorite;
+    const matchesCollection = !selectedCollectionId || collectionItems.includes(item.id);
+    return matchesSearch && matchesFilter && matchesMood && matchesFavorite && matchesCollection;
   });
 
   // Theme Config
   const theme = themes[currentTheme as keyof typeof themes] || themes.default;
   const bgClass = `bg-${theme.colors.background}`;
 
+  useEffect(() => {
+    if (currentTheme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [currentTheme]);
+
   return (
-    <div className={`min-h-screen ${bgClass} flex flex-col lg:flex-row overflow-hidden transition-colors duration-500 font-sans`}>
+    <div className={`min-h-screen ${bgClass} dark:bg-gray-900 flex flex-col lg:flex-row overflow-hidden transition-colors duration-500 font-sans`}>
       {/* Onboarding Overlay */}
       {showOnboarding && <Onboarding onComplete={handleOnboardingComplete} />}
 
@@ -295,7 +393,7 @@ export function Dashboard() {
 
       {/* Left Sidebar: WhatsApp & Navigation */}
       <aside className={`
-        fixed inset-y-0 left-0 z-40 w-full lg:w-[400px] bg-white/80 backdrop-blur-xl border-r border-gray-200/50 flex flex-col transform transition-transform duration-500 ease-in-out
+        fixed inset-y-0 left-0 z-40 w-full lg:w-[400px] bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl border-r border-gray-200/50 dark:border-gray-700/50 flex flex-col transform transition-transform duration-500 ease-in-out
         ${showMobileSimulator ? 'translate-x-0' : '-translate-x-full'}
         lg:relative lg:translate-x-0 lg:flex
       `}>
@@ -304,47 +402,85 @@ export function Dashboard() {
                 <motion.h2 
                     initial={{ opacity: 0, x: -20 }}
                     animate={{ opacity: 1, x: 0 }}
-                    className="text-2xl font-black tracking-tighter text-gray-900 flex items-center gap-2"
+                    className="text-2xl font-black tracking-tighter text-gray-900 dark:text-white flex items-center gap-2"
                 >
                     <span className="w-10 h-10 bg-indigo-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-indigo-200 rotate-3">
                         <Sparkles size={20} />
                     </span>
                     SOCIAL SAVER
                 </motion.h2>
-                <button onClick={() => setShowMobileSimulator(false)} className="lg:hidden p-2 text-gray-500">
+                <button onClick={() => setShowMobileSimulator(false)} className="lg:hidden p-2 text-gray-500 dark:text-gray-400">
                     <X size={24} />
                 </button>
             </div>
 
             <div className="flex-1 overflow-y-auto scrollbar-hide space-y-8">
+                <nav className="space-y-2">
+                    <button 
+                        onClick={() => setViewMode('grid')}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all ${viewMode === 'grid' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 dark:shadow-indigo-900/40' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                    >
+                        <LayoutGrid size={20} />
+                        <span className="font-bold text-sm">Dashboard</span>
+                    </button>
+                    <button 
+                        onClick={() => setViewMode('insights')}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all ${viewMode === 'insights' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 dark:shadow-indigo-900/40' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                    >
+                        <Activity size={20} />
+                        <span className="font-bold text-sm">Insights</span>
+                    </button>
+                    <button 
+                        onClick={() => setViewMode('collections')}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all ${viewMode === 'collections' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 dark:shadow-indigo-900/40' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                    >
+                        <Folder size={20} />
+                        <span className="font-bold text-sm">Collections</span>
+                    </button>
+                    <button 
+                        onClick={() => setViewMode('achievements')}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all ${viewMode === 'achievements' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 dark:shadow-indigo-900/40' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                    >
+                        <Trophy size={20} />
+                        <span className="font-bold text-sm">Achievements</span>
+                    </button>
+                    <button 
+                        onClick={() => setViewMode('tags')}
+                        className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all ${viewMode === 'tags' ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 dark:shadow-indigo-900/40' : 'text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'}`}
+                    >
+                        <Hash size={20} />
+                        <span className="font-bold text-sm">Manage Tags</span>
+                    </button>
+                </nav>
+
                 <section>
-                    <h3 className="text-[10px] font-black text-gray-400 uppercase tracking-[0.2em] mb-4">Live Simulator</h3>
+                    <h3 className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em] mb-4">Live Simulator</h3>
                     <WhatsAppSimulator onSendMessage={handleWhatsAppMessage} />
                 </section>
 
-                <section className="bg-indigo-50/50 rounded-3xl p-6 border border-indigo-100/50">
-                    <h3 className="text-xs font-bold text-indigo-900 mb-2 flex items-center gap-2">
+                <section className="bg-indigo-50/50 dark:bg-indigo-900/20 rounded-3xl p-6 border border-indigo-100/50 dark:border-indigo-800/50">
+                    <h3 className="text-xs font-bold text-indigo-900 dark:text-indigo-300 mb-2 flex items-center gap-2">
                         <Activity size={14} /> AI Activity
                     </h3>
-                    <p className="text-[10px] text-indigo-600 leading-relaxed">
+                    <p className="text-[10px] text-indigo-600 dark:text-indigo-400 leading-relaxed">
                         Your AI is currently processing {items.length} items. 
-                        Top vibe this week: <span className="font-bold">{insights.topVibes[0] || 'Curious'}</span>.
+                        Top vibe this week: <span className="font-bold">{insights.topVibes[0]?.vibe || 'Curious'}</span>.
                     </p>
                 </section>
             </div>
 
-            <div className="mt-8 pt-8 border-t border-gray-100">
+            <div className="mt-8 pt-8 border-t border-gray-100 dark:border-gray-700">
                 <div className="flex items-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-gray-100 overflow-hidden border-2 border-white shadow-sm">
+                    <div className="w-12 h-12 rounded-2xl bg-gray-100 dark:bg-gray-700 overflow-hidden border-2 border-white dark:border-gray-600 shadow-sm">
                         <img src={getAvatarUrl(profile?.avatar_config || {})} alt="User" className="w-full h-full object-cover" />
                     </div>
                     <div className="flex-1">
-                        <p className="text-sm font-bold text-gray-900">{profile?.full_name || 'Guest User'}</p>
-                        <p className="text-[10px] text-gray-500">Level {Math.floor((userStats?.points || 0) / 100) + 1} Curator</p>
+                        <p className="text-sm font-bold text-gray-900 dark:text-white">{profile?.full_name || 'Guest User'}</p>
+                        <p className="text-[10px] text-gray-500 dark:text-gray-400">Level {Math.floor((userStats?.points || 0) / 100) + 1} Curator</p>
                     </div>
                     <button 
                         onClick={() => setShowProfile(true)}
-                        className="p-2 hover:bg-gray-100 rounded-xl transition-colors text-gray-400"
+                        className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors text-gray-400 dark:text-gray-500"
                     >
                         <User size={20} />
                     </button>
@@ -354,15 +490,15 @@ export function Dashboard() {
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 flex flex-col h-screen overflow-hidden bg-[#F8F9FB] relative">
+      <main className="flex-1 flex flex-col h-screen overflow-hidden bg-[#F8F9FB] dark:bg-gray-900 relative">
         {/* Decorative Background Elements */}
-        <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-200/20 blur-[120px] rounded-full pointer-events-none" />
-        <div className="absolute bottom-[-10%] left-[-10%] w-[30%] h-[30%] bg-purple-200/20 blur-[100px] rounded-full pointer-events-none" />
+        <div className="absolute top-[-10%] right-[-10%] w-[40%] h-[40%] bg-indigo-200/20 dark:bg-indigo-500/10 blur-[120px] rounded-full pointer-events-none" />
+        <div className="absolute bottom-[-10%] left-[-10%] w-[30%] h-[30%] bg-purple-200/20 dark:bg-purple-500/10 blur-[100px] rounded-full pointer-events-none" />
 
         {/* Header */}
-        <header className="h-20 bg-white/60 backdrop-blur-xl border-b border-gray-200/50 px-8 flex items-center justify-between z-20 sticky top-0">
+        <header className="h-20 bg-white/60 dark:bg-gray-800/60 backdrop-blur-xl border-b border-gray-200/50 dark:border-gray-700/50 px-8 flex items-center justify-between z-20 sticky top-0">
             <div className="flex items-center gap-6 flex-1">
-                <button onClick={() => setShowMobileSimulator(true)} className="lg:hidden p-2 -ml-2 text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">
+                <button onClick={() => setShowMobileSimulator(true)} className="lg:hidden p-2 -ml-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-colors">
                     <Menu size={24} />
                 </button>
                 
@@ -373,22 +509,22 @@ export function Dashboard() {
                         placeholder="Search your global knowledge..." 
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        className="w-full pl-12 pr-4 py-3 bg-gray-100/50 border border-transparent rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white focus:border-indigo-200 transition-all placeholder:text-gray-400"
+                        className="w-full pl-12 pr-4 py-3 bg-gray-100/50 dark:bg-gray-700/50 border border-transparent rounded-2xl text-sm focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:bg-white dark:focus:bg-gray-700 focus:border-indigo-200 transition-all placeholder:text-gray-400 dark:text-white"
                     />
                 </div>
             </div>
 
             <div className="flex items-center gap-3">
-                <div className="hidden xl:flex items-center gap-2 px-4 py-2 bg-white/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-sm">
+                <div className="hidden xl:flex items-center gap-2 px-4 py-2 bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 dark:border-gray-600/50 shadow-sm">
                     <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                    <span className="text-[10px] font-black text-gray-500 uppercase tracking-widest">AI Engine Active</span>
+                    <span className="text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">AI Engine Active</span>
                 </div>
 
-                <div className="h-8 w-[1px] bg-gray-200 mx-2 hidden md:block" />
+                <div className="h-8 w-[1px] bg-gray-200 dark:bg-gray-700 mx-2 hidden md:block" />
 
                 <button 
                     onClick={() => setShowQuickSave(true)}
-                    className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-200 hover:bg-indigo-700 hover:shadow-indigo-300 transition-all active:scale-95 group"
+                    className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-200 dark:shadow-indigo-900/40 hover:bg-indigo-700 hover:shadow-indigo-300 transition-all active:scale-95 group"
                     title="Quick Save"
                 >
                     <Plus size={20} className="group-hover:rotate-90 transition-transform duration-300" />
@@ -396,14 +532,14 @@ export function Dashboard() {
 
                 <button
                     onClick={handleThemeToggle}
-                    className="p-3 rounded-2xl bg-white border border-gray-200 text-gray-600 hover:bg-gray-50 transition-all shadow-sm hover:border-indigo-200"
+                    className="p-3 rounded-2xl bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-all shadow-sm hover:border-indigo-200"
                 >
                     {currentTheme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
                 </button>
 
                 <button 
                     onClick={() => setShowProfile(true)}
-                    className="p-1 rounded-2xl bg-white border border-gray-200 shadow-sm hover:ring-4 hover:ring-indigo-500/10 hover:border-indigo-300 transition-all overflow-hidden w-12 h-12 group"
+                    className="p-1 rounded-2xl bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 shadow-sm hover:ring-4 hover:ring-indigo-500/10 hover:border-indigo-300 transition-all overflow-hidden w-12 h-12 group"
                 >
                     <img src={getAvatarUrl(profile?.avatar_config || {})} alt="Profile" className="w-full h-full object-cover group-hover:scale-110 transition-transform" />
                 </button>
@@ -411,7 +547,7 @@ export function Dashboard() {
                 <button 
                     onClick={handleGenerateDigest}
                     disabled={isGeneratingDigest}
-                    className="hidden md:flex items-center gap-2 px-6 py-3 bg-gray-900 text-white rounded-2xl text-sm font-black uppercase tracking-widest shadow-xl hover:bg-black hover:shadow-gray-300 transition-all active:scale-95 disabled:opacity-70"
+                    className="hidden md:flex items-center gap-2 px-6 py-3 bg-gray-900 dark:bg-white dark:text-gray-900 text-white rounded-2xl text-sm font-black uppercase tracking-widest shadow-xl hover:bg-black dark:hover:bg-gray-100 hover:shadow-gray-300 transition-all active:scale-95 disabled:opacity-70"
                 >
                     {isGeneratingDigest ? <Loader2 size={16} className="animate-spin" /> : <Newspaper size={16} />}
                     Rewind
@@ -432,37 +568,70 @@ export function Dashboard() {
                     <div className="inline-flex items-center gap-2 px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-[10px] font-black uppercase tracking-[0.2em] mb-6 border border-indigo-100">
                         <Sparkles size={12} /> Intelligence Layer v3.1
                     </div>
-                    <h1 className="text-6xl lg:text-8xl font-black tracking-tighter text-gray-900 mb-8 leading-[0.85] uppercase">
+                    <h1 className="text-6xl lg:text-8xl font-black tracking-tighter text-gray-900 dark:text-white mb-8 leading-[0.85] uppercase">
                         Archive Your <br />
                         <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600">Digital Soul.</span>
                     </h1>
-                    <p className="text-xl text-gray-500 max-w-2xl mb-10 leading-relaxed font-medium">
+                    <p className="text-xl text-gray-500 dark:text-gray-400 max-w-2xl mb-10 leading-relaxed font-medium">
                         Transform scattered social saves into a structured, AI-powered knowledge base. Search, remix, and rediscover your inspirations.
                     </p>
                     <div className="flex flex-wrap gap-4 items-center">
                         <button 
                             onClick={handleRandomInspiration}
-                            className="px-10 py-5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-[2rem] text-sm font-black uppercase tracking-widest shadow-2xl shadow-indigo-200 hover:scale-105 hover:shadow-indigo-300 transition-all active:scale-95 flex items-center gap-3"
+                            className="px-10 py-5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-[2rem] text-sm font-black uppercase tracking-widest shadow-2xl shadow-indigo-200 dark:shadow-indigo-900/40 hover:scale-105 hover:shadow-indigo-300 transition-all active:scale-95 flex items-center gap-3"
                         >
                             <Dice5 size={20} /> Get Inspired
                         </button>
-                        <div className="flex items-center gap-4 px-8 py-5 bg-white/80 backdrop-blur-md rounded-[2rem] border border-gray-200 shadow-xl shadow-gray-100/50">
-                            <div className="w-10 h-10 bg-yellow-100 rounded-full flex items-center justify-center text-yellow-600 shadow-inner">
+                        <div className="flex items-center gap-4 px-8 py-5 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md rounded-[2rem] border border-gray-200 dark:border-gray-700 shadow-xl shadow-gray-100/50 dark:shadow-black/20">
+                            <div className="w-10 h-10 bg-yellow-100 dark:bg-yellow-900/30 rounded-full flex items-center justify-center text-yellow-600 dark:text-yellow-400 shadow-inner">
                                 <Trophy size={20} />
                             </div>
                             <div>
-                                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Collector XP</p>
-                                <p className="text-lg font-black text-gray-900">{userStats?.points || 0}</p>
+                                <p className="text-[10px] font-black text-gray-400 dark:text-gray-500 uppercase tracking-widest">Collector XP</p>
+                                <p className="text-lg font-black text-gray-900 dark:text-white">{userStats?.points || 0}</p>
                             </div>
                         </div>
                     </div>
                 </motion.div>
             </div>
 
+            {/* Mood Discovery */}
+            <div className="mb-10">
+                <h3 className="text-xs font-black text-gray-400 dark:text-gray-500 uppercase tracking-[0.2em] mb-4">Mood Discovery</h3>
+                <div className="flex flex-wrap gap-3">
+                    {moods.map(mood => (
+                        <button
+                            key={mood.id}
+                            onClick={() => setSelectedMood(selectedMood === mood.id ? null : mood.id)}
+                            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+                                selectedMood === mood.id 
+                                    ? 'bg-indigo-600 text-white shadow-lg scale-105' 
+                                    : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border border-gray-100 dark:border-gray-700 hover:border-indigo-200'
+                            }`}
+                        >
+                            <span>{mood.icon}</span>
+                            {mood.label}
+                        </button>
+                    ))}
+                </div>
+            </div>
+
             {/* Filter Bar */}
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-10 gap-6">
                 <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-hide w-full md:w-auto">
-                    {['all', 'social', 'web', 'video', 'mood'].map((f) => (
+                    <button
+                        onClick={() => setShowFavoritesOnly(!showFavoritesOnly)}
+                        className={`px-6 py-3 rounded-2xl text-xs font-black uppercase tracking-widest transition-all whitespace-nowrap flex items-center gap-2 ${
+                            showFavoritesOnly 
+                                ? 'bg-yellow-500 text-white shadow-xl shadow-yellow-200' 
+                                : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50'
+                        }`}
+                    >
+                        <Heart size={14} className={showFavoritesOnly ? 'fill-white' : ''} />
+                        Favorites
+                    </button>
+                    <div className="h-10 w-[1px] bg-gray-200 dark:bg-gray-700 mx-1" />
+                    {['all', 'social', 'web', 'video'].map((f) => (
                         <button
                             key={f}
                             onClick={() => setFilter(f)}
@@ -477,24 +646,50 @@ export function Dashboard() {
                     ))}
                 </div>
                 
-                <div className="flex bg-white rounded-2xl p-1.5 border border-gray-200 shadow-sm">
-                    <button 
-                        onClick={() => setViewMode('grid')}
-                        className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 text-xs font-bold ${viewMode === 'grid' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400 hover:text-gray-600'}`}
-                    >
-                        <LayoutGrid size={16} /> GRID
-                    </button>
-                    <button 
-                        onClick={() => setViewMode('insights')}
-                        className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 text-xs font-bold ${viewMode === 'insights' ? 'bg-gray-900 text-white shadow-lg' : 'text-gray-400 hover:text-gray-600'}`}
-                    >
-                        <Activity size={16} /> INSIGHTS
-                    </button>
+                <div className="flex items-center gap-4">
+                    <div className="flex bg-white dark:bg-gray-800 rounded-2xl p-1.5 border border-gray-200 dark:border-gray-700 shadow-sm">
+                        <button 
+                            onClick={() => setViewMode('grid')}
+                            className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 text-xs font-bold ${viewMode === 'grid' ? 'bg-gray-900 dark:bg-white dark:text-gray-900 text-white shadow-lg' : 'text-gray-400 hover:text-gray-600'}`}
+                        >
+                            <LayoutGrid size={16} /> GRID
+                        </button>
+                        <button 
+                            onClick={() => setViewMode('insights')}
+                            className={`px-4 py-2 rounded-xl transition-all flex items-center gap-2 text-xs font-bold ${viewMode === 'insights' ? 'bg-gray-900 dark:bg-white dark:text-gray-900 text-white shadow-lg' : 'text-gray-400 hover:text-gray-600'}`}
+                        >
+                            <Activity size={16} /> STATS
+                        </button>
+                    </div>
+
+                    <div className="flex bg-white dark:bg-gray-800 rounded-2xl p-1.5 border border-gray-200 dark:border-gray-700 shadow-sm">
+                        <button 
+                            onClick={() => handleExport('json')}
+                            className="px-4 py-2 rounded-xl text-xs font-bold text-gray-500 hover:text-indigo-600 transition-all flex items-center gap-2"
+                        >
+                            JSON
+                        </button>
+                        <button 
+                            onClick={() => handleExport('csv')}
+                            className="px-4 py-2 rounded-xl text-xs font-bold text-gray-500 hover:text-indigo-600 transition-all flex items-center gap-2"
+                        >
+                            CSV
+                        </button>
+                    </div>
                 </div>
             </div>
 
             <AnimatePresence mode='wait'>
-                {viewMode === 'insights' ? (
+                {viewMode === 'tags' ? (
+                    <motion.div 
+                        key="tags"
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                    >
+                        <TagManager onTagsUpdated={fetchExtras} />
+                    </motion.div>
+                ) : viewMode === 'insights' ? (
                     <motion.div 
                         key="insights"
                         initial={{ opacity: 0, scale: 0.95 }}
@@ -506,10 +701,85 @@ export function Dashboard() {
                             topTags={insights.topTags} 
                             topVibes={insights.topVibes} 
                             dailyTip={dailyTip} 
+                            stats={{
+                                totalSaved: items.length,
+                                favoritesCount: items.filter(i => i.is_favorite).length,
+                                avgSavesPerWeek: Math.ceil(items.length / 4), // Mock calculation
+                                topCategory: 'Social',
+                                topSource: 'Instagram',
+                                categoryDistribution: [
+                                    { name: 'Social', value: items.filter(i => i.type === 'social').length },
+                                    { name: 'Web', value: items.filter(i => i.type === 'web').length },
+                                    { name: 'Video', value: items.filter(i => i.type === 'video').length },
+                                ],
+                                sourceDistribution: [
+                                    { name: 'Instagram', value: items.filter(i => i.source === 'instagram').length },
+                                    { name: 'Twitter', value: items.filter(i => i.source === 'twitter').length },
+                                    { name: 'WhatsApp', value: items.filter(i => i.source === 'whatsapp').length },
+                                ],
+                                weeklyTrend: [
+                                    { day: 'Mon', count: 4 },
+                                    { day: 'Tue', count: 7 },
+                                    { day: 'Wed', count: 5 },
+                                    { day: 'Thu', count: 12 },
+                                    { day: 'Fri', count: 8 },
+                                    { day: 'Sat', count: 15 },
+                                    { day: 'Sun', count: 10 },
+                                ]
+                            }}
+                            aiInsights="Your saving habits show a strong interest in visual storytelling and tech innovation. You tend to save most on weekends!"
                         />
+                    </motion.div>
+                ) : viewMode === 'collections' ? (
+                    <motion.div 
+                        key="collections"
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                        className="space-y-12"
+                    >
                         <CollectionsList 
                             collections={collections} 
                             onCreateCollection={handleCreateCollection} 
+                            onSelectCollection={setSelectedCollectionId}
+                            selectedId={selectedCollectionId}
+                        />
+
+                        {selectedCollectionId && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4 gap-8 pb-32">
+                                <AnimatePresence mode='popLayout'>
+                                    {filteredItems.map(item => (
+                                        <div id={`item-${item.id}`} key={item.id}>
+                                            <ItemCard 
+                                                item={item} 
+                                                onRemix={() => {
+                                                    setRemixItem(item);
+                                                    setRemixPrompt(`Create a video based on: ${item.summary}`);
+                                                }} 
+                                                onUpdate={handleUpdateItem}
+                                                onDelete={handleDeleteItem}
+                                            />
+                                        </div>
+                                    ))}
+                                </AnimatePresence>
+                                {filteredItems.length === 0 && (
+                                    <div className="col-span-full py-20 text-center text-gray-400">
+                                        <p className="font-bold uppercase tracking-widest text-xs">No items in this collection matching your filters.</p>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </motion.div>
+                ) : viewMode === 'achievements' ? (
+                    <motion.div 
+                        key="achievements"
+                        initial={{ opacity: 0, scale: 0.95 }}
+                        animate={{ opacity: 1, scale: 1 }}
+                        exit={{ opacity: 0, scale: 0.95 }}
+                    >
+                        <GamificationHub 
+                            stats={userStats} 
+                            isFullPage={true}
                         />
                     </motion.div>
                 ) : (
@@ -541,20 +811,39 @@ export function Dashboard() {
                                 <AnimatePresence mode='popLayout'>
                                     {filteredItems.map(item => (
                                         <div id={`item-${item.id}`} key={item.id}>
-                                            <ItemCard item={item} onRemix={() => {
-                                                setRemixItem(item);
-                                                setRemixPrompt(`Create a video based on: ${item.summary}`);
-                                            }} />
+                                            <ItemCard 
+                                                item={item} 
+                                                onRemix={() => {
+                                                    setRemixItem(item);
+                                                    setRemixPrompt(`Create a video based on: ${item.summary}`);
+                                                }} 
+                                                onUpdate={handleUpdateItem}
+                                                onDelete={handleDeleteItem}
+                                            />
                                         </div>
                                     ))}
                                 </AnimatePresence>
                                 {filteredItems.length === 0 && (
-                                    <div className="col-span-full flex flex-col items-center justify-center py-32 text-gray-400 bg-white rounded-[3rem] border-2 border-dashed border-gray-100 shadow-inner">
-                                        <div className="w-24 h-24 bg-gray-50 rounded-full flex items-center justify-center mb-6">
-                                            <Sparkles size={40} className="text-gray-200" />
+                                    <div className="col-span-full flex flex-col items-center justify-center py-32 text-gray-400 dark:text-gray-500 bg-white dark:bg-gray-800 rounded-[3rem] border-2 border-dashed border-gray-100 dark:border-gray-700 shadow-inner">
+                                        <div className="w-24 h-24 bg-gray-50 dark:bg-gray-700 rounded-full flex items-center justify-center mb-6">
+                                            {search ? <Search size={40} className="text-gray-200 dark:text-gray-600" /> : <Sparkles size={40} className="text-gray-200 dark:text-gray-600" />}
                                         </div>
-                                        <p className="font-black text-xl text-gray-900 mb-2">EMPTY CANVAS</p>
-                                        <p className="text-sm text-gray-500">Your knowledge base is waiting for its first spark.</p>
+                                        <p className="font-black text-xl text-gray-900 dark:text-white mb-2 uppercase tracking-tight">
+                                            {search ? 'No Matches Found' : 'Empty Canvas'}
+                                        </p>
+                                        <p className="text-sm text-gray-500 dark:text-gray-400 max-w-xs text-center px-4">
+                                            {search 
+                                                ? `We couldn't find anything matching "${search}". Try a different keyword or filter.` 
+                                                : "Your knowledge base is waiting for its first spark. Save something from WhatsApp to get started!"}
+                                        </p>
+                                        {search && (
+                                            <button 
+                                                onClick={() => setSearch('')}
+                                                className="mt-6 px-6 py-2 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-xl text-xs font-bold hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                                            >
+                                                CLEAR SEARCH
+                                            </button>
+                                        )}
                                     </div>
                                 )}
                             </div>

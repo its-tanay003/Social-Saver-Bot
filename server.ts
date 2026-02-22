@@ -3,7 +3,7 @@ import { createServer as createViteServer } from "vite";
 import cors from "cors";
 import db from "./src/db/index.ts";
 import { analyzeContent, chatWithKnowledgeBase, generateDigest, findLocationOnMaps } from "./src/services/gemini.ts";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 
 async function startServer() {
   const app = express();
@@ -21,6 +21,33 @@ async function startServer() {
       res.json(items);
     } catch (error) {
       res.status(500).json({ error: "Failed to fetch items" });
+    }
+  });
+
+  // Update item
+  app.patch("/api/items/:id", (req, res) => {
+    const { id } = req.params;
+    const updates = req.body;
+    try {
+      const keys = Object.keys(updates);
+      const values = Object.values(updates);
+      const setClause = keys.map(k => `${k} = ?`).join(', ');
+      db.prepare(`UPDATE saved_items SET ${setClause} WHERE id = ?`).run(...values, id);
+      res.json({ success: true });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: "Failed to update item" });
+    }
+  });
+
+  // Delete item
+  app.delete("/api/items/:id", (req, res) => {
+    const { id } = req.params;
+    try {
+      db.prepare("DELETE FROM saved_items WHERE id = ?").run(id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete item" });
     }
   });
 
@@ -127,7 +154,7 @@ async function startServer() {
 
   // Simulate WhatsApp Webhook / Add Item
   app.post("/api/items", async (req, res) => {
-    const { url, content, source = 'whatsapp' } = req.body;
+    const { url, content, source = 'whatsapp', mood } = req.body;
     
     try {
       // 1. Analyze with Gemini
@@ -144,14 +171,16 @@ async function startServer() {
         ? `https://picsum.photos/seed/${Math.random()}/400/400` 
         : null;
 
+      const finalVibe = mood || analysis.vibe;
+
       const info = stmt.run(
         url, 
         source, 
         type, 
         analysis.summary, 
         JSON.stringify(analysis.tags), 
-        content || analysis.vibe,
-        analysis.vibe,
+        content || finalVibe,
+        finalVibe,
         mediaUrl
       );
 
@@ -182,9 +211,9 @@ async function startServer() {
   });
 
   app.post("/api/collections", (req, res) => {
-    const { name, icon, color } = req.body;
+    const { name, icon, color, description } = req.body;
     try {
-      const info = db.prepare("INSERT INTO collections (name, icon, color) VALUES (?, ?, ?)").run(name, icon, color);
+      const info = db.prepare("INSERT INTO collections (name, icon, color, description) VALUES (?, ?, ?, ?)").run(name, icon, color, description);
       res.json({ success: true, id: info.lastInsertRowid });
     } catch (error) {
       res.status(500).json({ error: "Failed to create collection" });
@@ -198,6 +227,15 @@ async function startServer() {
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: "Failed to add to collection" });
+    }
+  });
+
+  app.get("/api/collections/:id/items", (req, res) => {
+    try {
+      const items = db.prepare("SELECT item_id FROM collection_items WHERE collection_id = ?").all(req.params.id);
+      res.json(items);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch collection items" });
     }
   });
 
@@ -246,8 +284,29 @@ async function startServer() {
     try {
       // Fetch context
       const items = db.prepare("SELECT * FROM saved_items LIMIT 20").all();
-      const response = await chatWithKnowledgeBase(message, items);
-      res.json({ response });
+      
+      // Use Gemini with Search Grounding if it's a general query
+      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY! });
+      const response = await ai.models.generateContent({
+        model: "gemini-3.1-pro-preview",
+        contents: `
+          Knowledge Base Context:
+          ${items.map(item => `- [${item.type}] ${item.summary} (Tags: ${item.tags})`).join('\n')}
+          
+          User Query: ${message}
+          
+          Answer the user's question. If you need current web information, use Google Search.
+        `,
+        config: {
+          tools: [{ googleSearch: {} }],
+          thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH }
+        }
+      });
+
+      res.json({ 
+        response: response.text,
+        grounding: response.candidates?.[0]?.groundingMetadata?.groundingChunks
+      });
     } catch (error) {
       console.error(error);
       res.status(500).json({ error: "Chat failed" });
@@ -284,6 +343,109 @@ async function startServer() {
       res.status(500).json({ error: "Failed to locate" });
     }
   });
+
+  // --- Tag Management Routes ---
+  app.get("/api/tags", (req, res) => {
+    try {
+      const tags = db.prepare(`
+        SELECT value as name, COUNT(*) as count 
+        FROM saved_items, json_each(tags) 
+        GROUP BY value 
+        ORDER BY count DESC
+      `).all();
+      res.json(tags);
+    } catch (error) {
+      res.status(500).json({ error: "Failed to fetch tags" });
+    }
+  });
+
+  app.put("/api/tags/:oldName", (req, res) => {
+    const { oldName } = req.params;
+    const { newName } = req.body;
+    try {
+      const items = db.prepare("SELECT id, tags FROM saved_items WHERE tags LIKE ?").all(`%${oldName}%`);
+      const stmt = db.prepare("UPDATE saved_items SET tags = ? WHERE id = ?");
+      
+      let updatedCount = 0;
+      for (const item of items) {
+        let tags = JSON.parse(item.tags);
+        if (tags.includes(oldName)) {
+          tags = tags.map((t: string) => t === oldName ? newName : t);
+          stmt.run(JSON.stringify(tags), item.id);
+          updatedCount++;
+        }
+      }
+      res.json({ success: true, updatedCount });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to rename tag" });
+    }
+  });
+
+  app.delete("/api/tags/:name", (req, res) => {
+    const { name } = req.params;
+    try {
+      const items = db.prepare("SELECT id, tags FROM saved_items WHERE tags LIKE ?").all(`%${name}%`);
+      const stmt = db.prepare("UPDATE saved_items SET tags = ? WHERE id = ?");
+      
+      let updatedCount = 0;
+      for (const item of items) {
+        let tags = JSON.parse(item.tags);
+        if (tags.includes(name)) {
+          tags = tags.filter((t: string) => t !== name);
+          stmt.run(JSON.stringify(tags), item.id);
+          updatedCount++;
+        }
+      }
+      res.json({ success: true, updatedCount });
+    } catch (error) {
+      res.status(500).json({ error: "Failed to delete tag" });
+    }
+  });
+
+  app.post("/api/edit-image", async (req, res) => {
+    const { imageUrl, prompt } = req.body;
+    if (!process.env.GEMINI_API_KEY) {
+        return res.status(500).json({ error: "API Key missing" });
+    }
+    
+    try {
+        const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+        
+        // Fetch image as base64
+        const imgRes = await fetch(imageUrl);
+        const buffer = await imgRes.arrayBuffer();
+        const base64Data = Buffer.from(buffer).toString('base64');
+        const mimeType = imgRes.headers.get('content-type') || 'image/png';
+
+        const response = await ai.models.generateContent({
+            model: 'gemini-2.5-flash-image',
+            contents: {
+                parts: [
+                    { inlineData: { data: base64Data, mimeType } },
+                    { text: prompt }
+                ]
+            }
+        });
+
+        let editedImageUrl = null;
+        for (const part of response.candidates[0].content.parts) {
+            if (part.inlineData) {
+                editedImageUrl = `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+                break;
+            }
+        }
+
+        if (editedImageUrl) {
+            res.json({ imageUrl: editedImageUrl });
+        } else {
+            res.status(500).json({ error: "Image editing failed" });
+        }
+    } catch (error) {
+        console.error("Image Edit Error:", error);
+        res.status(500).json({ error: "Image editing failed" });
+    }
+  });
+
   app.post("/api/generate-video", async (req, res) => {
     const { prompt } = req.body;
     if (!process.env.GEMINI_API_KEY) {

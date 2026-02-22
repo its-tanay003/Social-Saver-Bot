@@ -96,12 +96,12 @@ export function WhatsAppSimulator({ onSendMessage }: WhatsAppSimulatorProps) {
   };
 
   return (
-    <div className="w-full max-w-sm bg-[#E5DDD5] rounded-[2.5rem] overflow-hidden shadow-2xl border-[10px] border-gray-900 h-[650px] flex flex-col relative">
+    <div className="w-full max-w-sm bg-[#E5DDD5] dark:bg-[#0b141a] rounded-[2.5rem] overflow-hidden shadow-2xl border-[10px] border-gray-900 h-[650px] flex flex-col relative">
       {/* Notch */}
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-6 bg-gray-900 rounded-b-2xl z-20"></div>
 
       {/* Header */}
-      <div className="bg-[#075E54] p-4 pt-8 flex items-center gap-3 text-white shadow-md z-10">
+      <div className="bg-[#075E54] dark:bg-[#202c33] p-4 pt-8 flex items-center gap-3 text-white shadow-md z-10">
         <div className="w-10 h-10 bg-white/20 rounded-full flex items-center justify-center font-bold">
           SS
         </div>
@@ -119,7 +119,7 @@ export function WhatsAppSimulator({ onSendMessage }: WhatsAppSimulatorProps) {
       {/* Messages Area */}
       <div 
         ref={scrollRef}
-        className="flex-1 overflow-y-auto p-4 space-y-3 scroll-smooth bg-[url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')] bg-repeat"
+        className="flex-1 overflow-y-auto p-4 space-y-3 scroll-smooth bg-[url('https://user-images.githubusercontent.com/15075759/28719144-86dc0f70-73b1-11e7-911d-60d70fcded21.png')] dark:bg-none bg-repeat"
       >
         {messages.map((msg) => (
           <motion.div
@@ -130,33 +130,35 @@ export function WhatsAppSimulator({ onSendMessage }: WhatsAppSimulatorProps) {
           >
             <div className={`
               max-w-[80%] p-2 rounded-lg shadow-sm relative text-sm
-              ${msg.sender === 'me' ? 'bg-[#DCF8C6] rounded-tr-none' : 'bg-white rounded-tl-none'}
+              ${msg.sender === 'me' 
+                ? 'bg-[#DCF8C6] dark:bg-[#005c4b] dark:text-[#e9edef] rounded-tr-none' 
+                : 'bg-white dark:bg-[#202c33] dark:text-[#e9edef] rounded-tl-none'}
             `}>
               {msg.isLink ? (
                 <div className="flex flex-col gap-1">
-                  <div className="bg-black/5 p-2 rounded border-l-4 border-[#075E54] flex items-center gap-2">
-                    <LinkIcon size={14} className="text-[#075E54]" />
-                    <span className="text-[10px] font-bold text-[#075E54]">Link Shared</span>
+                  <div className="bg-black/5 dark:bg-white/5 p-2 rounded border-l-4 border-[#075E54] dark:border-[#00a884] flex items-center gap-2">
+                    <LinkIcon size={14} className="text-[#075E54] dark:text-[#00a884]" />
+                    <span className="text-[10px] font-bold text-[#075E54] dark:text-[#00a884]">Link Shared</span>
                   </div>
-                  <p className="text-blue-600 underline break-all">{msg.text}</p>
+                  <p className="text-blue-600 dark:text-[#53bdeb] underline break-all">{msg.text}</p>
                 </div>
               ) : (
-                <p className="text-gray-800">{msg.text}</p>
+                <p className={msg.sender === 'me' ? 'text-gray-800 dark:text-[#e9edef]' : 'text-gray-800 dark:text-[#e9edef]'}>{msg.text}</p>
               )}
               <div className="flex justify-end items-center gap-1 mt-1">
-                <span className="text-[9px] text-gray-500">{msg.timestamp}</span>
-                {msg.sender === 'me' && <CheckCheck size={12} className="text-blue-500" />}
+                <span className="text-[9px] text-gray-500 dark:text-[#8696a0]">{msg.timestamp}</span>
+                {msg.sender === 'me' && <CheckCheck size={12} className="text-blue-500 dark:text-[#53bdeb]" />}
               </div>
             </div>
           </motion.div>
         ))}
         {isTyping && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex justify-start">
-            <div className="bg-white p-2 rounded-lg rounded-tl-none shadow-sm">
+            <div className="bg-white dark:bg-[#202c33] p-2 rounded-lg rounded-tl-none shadow-sm">
               <div className="flex gap-1">
-                <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce"></span>
-                <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce delay-75"></span>
-                <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce delay-150"></span>
+                <span className="w-1.5 h-1.5 bg-gray-400 dark:bg-[#8696a0] rounded-full animate-bounce"></span>
+                <span className="w-1.5 h-1.5 bg-gray-400 dark:bg-[#8696a0] rounded-full animate-bounce delay-75"></span>
+                <span className="w-1.5 h-1.5 bg-gray-400 dark:bg-[#8696a0] rounded-full animate-bounce delay-150"></span>
               </div>
             </div>
           </motion.div>
@@ -164,25 +166,25 @@ export function WhatsAppSimulator({ onSendMessage }: WhatsAppSimulatorProps) {
       </div>
 
       {/* Input Area */}
-      <div className="p-2 bg-[#F0F0F0] flex items-center gap-2">
-        <div className="flex-1 bg-white rounded-full px-4 py-2 flex items-center gap-2 shadow-sm">
-          <Smile size={20} className="text-gray-500" />
+      <div className="p-2 bg-[#F0F0F0] dark:bg-[#202c33] flex items-center gap-2">
+        <div className="flex-1 bg-white dark:bg-[#2a3942] rounded-full px-4 py-2 flex items-center gap-2 shadow-sm">
+          <Smile size={20} className="text-gray-500 dark:text-[#8696a0]" />
           <input 
             type="text" 
             placeholder="Type a message"
-            className="flex-1 bg-transparent outline-none text-sm"
+            className="flex-1 bg-transparent outline-none text-sm dark:text-[#e9edef]"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleSend()}
           />
-          <Paperclip size={20} className="text-gray-500 -rotate-45" />
+          <Paperclip size={20} className="text-gray-500 dark:text-[#8696a0] -rotate-45" />
           <button onClick={() => setShowLogInput(true)} title="Import Chat Log">
-            <FileText size={20} className="text-gray-500" />
+            <FileText size={20} className="text-gray-500 dark:text-[#8696a0]" />
           </button>
         </div>
         <button 
           onClick={() => handleSend()}
-          className="w-10 h-10 bg-[#075E54] rounded-full flex items-center justify-center text-white shadow-md active:scale-90 transition-transform"
+          className="w-10 h-10 bg-[#075E54] dark:bg-[#00a884] rounded-full flex items-center justify-center text-white shadow-md active:scale-90 transition-transform"
         >
           {input ? <Send size={18} /> : <Mic size={18} />}
         </button>
@@ -200,15 +202,15 @@ export function WhatsAppSimulator({ onSendMessage }: WhatsAppSimulatorProps) {
             <motion.div 
               initial={{ scale: 0.9, y: 20 }}
               animate={{ scale: 1, y: 0 }}
-              className="bg-white rounded-2xl p-4 w-full shadow-2xl"
+              className="bg-white dark:bg-[#2a3942] rounded-2xl p-4 w-full shadow-2xl"
             >
-              <h4 className="font-bold text-gray-800 mb-2 flex items-center gap-2">
-                <FileText size={18} className="text-[#075E54]" />
+              <h4 className="font-bold text-gray-800 dark:text-[#e9edef] mb-2 flex items-center gap-2">
+                <FileText size={18} className="text-[#075E54] dark:text-[#00a884]" />
                 Import Chat Log
               </h4>
-              <p className="text-[10px] text-gray-500 mb-3">Paste your WhatsApp export or any chat log below. We'll simulate the conversation and save all links.</p>
+              <p className="text-[10px] text-gray-500 dark:text-[#8696a0] mb-3">Paste your WhatsApp export or any chat log below. We'll simulate the conversation and save all links.</p>
               <textarea 
-                className="w-full h-40 p-3 border border-gray-200 rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#075E54] resize-none"
+                className="w-full h-40 p-3 border border-gray-200 dark:border-gray-700 bg-transparent rounded-xl text-xs outline-none focus:ring-2 focus:ring-[#075E54] dark:focus:ring-[#00a884] dark:text-[#e9edef] resize-none"
                 placeholder="[10:05] Alex: Check this out https://instagram.com/p/..."
                 value={chatLog}
                 onChange={(e) => setChatLog(e.target.value)}
@@ -216,13 +218,13 @@ export function WhatsAppSimulator({ onSendMessage }: WhatsAppSimulatorProps) {
               <div className="flex gap-2 mt-4">
                 <button 
                   onClick={() => setShowLogInput(false)}
-                  className="flex-1 py-2 text-sm font-medium text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
+                  className="flex-1 py-2 text-sm font-medium text-gray-600 dark:text-[#8696a0] hover:bg-gray-100 dark:hover:bg-white/5 rounded-lg transition-colors"
                 >
                   Cancel
                 </button>
                 <button 
                   onClick={handleProcessLog}
-                  className="flex-1 py-2 bg-[#075E54] text-white text-sm font-medium rounded-lg shadow-md hover:bg-[#128C7E] transition-colors"
+                  className="flex-1 py-2 bg-[#075E54] dark:bg-[#00a884] text-white text-sm font-medium rounded-lg shadow-md hover:bg-[#128C7E] dark:hover:bg-[#06cf9c] transition-colors"
                 >
                   Process Log
                 </button>
