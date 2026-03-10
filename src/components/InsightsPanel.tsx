@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { TrendingUp, Hash, Zap, Lightbulb, BarChart3, PieChart, Activity, Users, Star, Calendar, ArrowUpRight } from 'lucide-react';
+import { TrendingUp, Hash, Zap, Lightbulb, BarChart3, PieChart, Activity, Users, Star, Calendar, ArrowUpRight, User } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, 
   PieChart as RePieChart, Pie, Cell, LineChart, Line 
@@ -10,6 +10,7 @@ interface InsightsProps {
   topTags: { tag: string; count: number }[];
   topVibes: { vibe: string; count: number }[];
   dailyTip: string;
+  activeUsers: number;
   stats: {
     totalSaved: number;
     favoritesCount: number;
@@ -25,9 +26,49 @@ interface InsightsProps {
 
 const COLORS = ['#6366f1', '#a855f7', '#ec4899', '#f43f5e', '#f97316', '#eab308'];
 
-export function InsightsPanel({ topTags, topVibes, dailyTip, stats, aiInsights }: InsightsProps) {
+export function InsightsPanel({ topTags, topVibes, dailyTip, activeUsers, stats, aiInsights }: InsightsProps) {
   return (
     <div className="space-y-8">
+      {/* Real-time Collaboration Banner */}
+      <motion.div 
+        initial={{ opacity: 0, scale: 0.95 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 p-1 rounded-[2.5rem] shadow-xl"
+      >
+        <div className="bg-white dark:bg-gray-950 rounded-[2.4rem] p-6 flex flex-col md:flex-row items-center justify-between gap-6">
+          <div className="flex items-center gap-6">
+            <div className="relative">
+              <div className="w-16 h-16 bg-indigo-100 dark:bg-indigo-900/30 rounded-full flex items-center justify-center text-indigo-600">
+                <Users size={32} />
+              </div>
+              <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-green-500 border-4 border-white dark:border-gray-950 rounded-full animate-pulse" />
+            </div>
+            <div>
+              <h3 className="text-xl font-black text-gray-900 dark:text-white uppercase tracking-tighter">Live Collaboration</h3>
+              <p className="text-sm text-gray-500 dark:text-gray-400 font-medium">You are currently syncing with {activeUsers} other digital souls.</p>
+            </div>
+          </div>
+          <div className="flex -space-x-3">
+            {Array.from({ length: Math.min(activeUsers, 5) }).map((_, i) => (
+              <motion.div 
+                key={i}
+                initial={{ x: 20, opacity: 0 }}
+                animate={{ x: 0, opacity: 1 }}
+                transition={{ delay: i * 0.1 }}
+                className="w-12 h-12 rounded-full border-4 border-white dark:border-gray-950 bg-gray-200 dark:bg-gray-800 flex items-center justify-center text-xs font-bold text-gray-400"
+              >
+                <User size={20} />
+              </motion.div>
+            ))}
+            {activeUsers > 5 && (
+              <div className="w-12 h-12 rounded-full border-4 border-white dark:border-gray-950 bg-indigo-600 flex items-center justify-center text-xs font-bold text-white">
+                +{activeUsers - 5}
+              </div>
+            )}
+          </div>
+        </div>
+      </motion.div>
+
       {/* Stats Overview */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         {[
@@ -157,6 +198,30 @@ export function InsightsPanel({ topTags, topVibes, dailyTip, stats, aiInsights }
                   #{t.tag} <span className="text-indigo-500 ml-1">{t.count}</span>
                 </span>
               ))}
+            </div>
+          </div>
+
+          <div className="bg-white dark:bg-gray-800 p-8 rounded-[2.5rem] border border-gray-100 dark:border-gray-700 shadow-sm">
+            <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-tighter mb-6 flex items-center gap-2">
+              <Star size={18} className="text-yellow-500" />
+              Mood Tracking
+            </h3>
+            <div className="space-y-4">
+              {topVibes.slice(0, 3).map((v, i) => (
+                <div key={i} className="flex items-center justify-between">
+                  <span className="text-sm font-bold text-gray-700 dark:text-gray-300 capitalize">{v.vibe}</span>
+                  <div className="flex-1 mx-4 h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-yellow-400 rounded-full" 
+                      style={{ width: `${(v.count / (topVibes[0]?.count || 1)) * 100}%` }}
+                    />
+                  </div>
+                  <span className="text-xs font-black text-gray-400">{v.count}</span>
+                </div>
+              ))}
+              {topVibes.length === 0 && (
+                <p className="text-xs text-gray-500 italic text-center">Save more items to track your mood.</p>
+              )}
             </div>
           </div>
 

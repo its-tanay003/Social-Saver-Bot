@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'motion/react';
-import { Trophy, Star, Award, Flame } from 'lucide-react';
+import { Trophy, Star, Award, Flame, Check } from 'lucide-react';
 
 interface Badge {
   id: string;
@@ -80,6 +80,35 @@ export function GamificationHub({ stats, isOpen, onClose, isFullPage = false }: 
         <div>
           <h4 className="font-black text-gray-900 dark:text-white uppercase tracking-tighter text-lg">{stats.streak_days} Day Streak</h4>
           <p className="text-xs text-gray-500 dark:text-gray-400 font-medium">Keep saving daily to maintain your momentum!</p>
+        </div>
+      </div>
+
+      {/* Daily Challenges */}
+      <div className="mb-8">
+        <h3 className="text-sm font-black text-gray-900 dark:text-white uppercase tracking-widest mb-6 px-2 flex items-center gap-2">
+          <Star size={16} className="text-indigo-500" /> Daily Challenges
+        </h3>
+        <div className="space-y-3">
+          {[
+            { title: "Save 3 new items", progress: 1, total: 3, xp: 50 },
+            { title: "Remix an image", progress: 0, total: 1, xp: 100 },
+            { title: "Read a saved article", progress: 1, total: 1, xp: 20, done: true }
+          ].map((challenge, i) => (
+            <div key={i} className={`p-4 rounded-2xl border ${challenge.done ? 'bg-green-50 border-green-200 dark:bg-green-900/10 dark:border-green-900/30' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'} flex items-center justify-between shadow-sm`}>
+              <div className="flex items-center gap-3">
+                <div className={`w-8 h-8 rounded-full flex items-center justify-center ${challenge.done ? 'bg-green-100 text-green-600' : 'bg-indigo-50 text-indigo-600'}`}>
+                  {challenge.done ? <Check size={14} /> : <Star size={14} />}
+                </div>
+                <div>
+                  <p className={`text-sm font-bold ${challenge.done ? 'text-green-800 dark:text-green-400 line-through opacity-70' : 'text-gray-900 dark:text-white'}`}>{challenge.title}</p>
+                  <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">+{challenge.xp} XP</p>
+                </div>
+              </div>
+              <div className="text-right">
+                <span className="text-xs font-bold text-gray-500">{challenge.progress} / {challenge.total}</span>
+              </div>
+            </div>
+          ))}
         </div>
       </div>
 

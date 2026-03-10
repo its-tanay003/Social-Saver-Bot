@@ -102,6 +102,14 @@ const schema = `
     avatar_config TEXT DEFAULT '{"seed": "Alex", "top": "shortHair", "accessories": "none", "hairColor": "brown", "facialHair": "none", "clothing": "shirt", "skinColor": "light"}'
   );
 
+  CREATE TABLE IF NOT EXISTS feedback (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    type TEXT NOT NULL,
+    message TEXT NOT NULL,
+    email TEXT,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+
   -- Seed initial data if empty
   INSERT OR IGNORE INTO user_settings (id, theme_id, onboarding_completed) VALUES (1, 'default', 0);
   INSERT OR IGNORE INTO user_stats (id, points) VALUES (1, 0);

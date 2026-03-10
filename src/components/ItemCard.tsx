@@ -1,6 +1,12 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ExternalLink, Tag, Wand2, Heart, MessageCircle, Share2, MoreHorizontal, MapPin, Loader2, Globe, X, Copy, Trash2, StickyNote, Eye, Sparkles } from 'lucide-react';
+import { ExternalLink, Tag, Wand2, Heart, MessageCircle, Share2, MoreHorizontal, MapPin, Loader2, Globe, X, Copy, Trash2, StickyNote, Eye, Sparkles, FolderPlus, Check, Volume2 } from 'lucide-react';
+
+interface Collection {
+  id: number;
+  name: string;
+  color: string;
+}
 
 interface Item {
   id: number;
@@ -20,14 +26,18 @@ interface Item {
 
 interface ItemCardProps {
   item: Item;
+  collections: Collection[];
   onRemix: (item: Item) => void;
   onUpdate: (id: number, updates: Partial<Item>) => void;
   onDelete: (id: number) => void;
+  onAddToCollection: (itemId: number, collectionId: number) => void;
 }
 
-export function ItemCard({ item, onRemix, onUpdate, onDelete }: ItemCardProps) {
+export function ItemCard({ item, collections, onRemix, onUpdate, onDelete, onAddToCollection }: ItemCardProps) {
   const [locating, setLocating] = useState(false);
   const [showNotes, setShowNotes] = useState(false);
+  const [showCollections, setShowCollections] = useState(false);
+  const [isAddingToCollection, setIsAddingToCollection] = useState<number | null>(null);
   const [noteValue, setNoteValue] = useState(item.notes || '');
   const [locationInfo, setLocationInfo] = useState<any>(item.location_data ? JSON.parse(item.location_data) : null);
   const [isRemixingImage, setIsRemixingImage] = useState(false);
@@ -98,15 +108,48 @@ export function ItemCard({ item, onRemix, onUpdate, onDelete }: ItemCardProps) {
     }
   };
 
-  return (
-    <motion.div
+  const handleAddToCollection = async (collectionId: number) => {
+    setIsAddingToCollection(collectionId);
+    try {
+        await onAddToCollection(item.id, collectionId);
+        // Show success state briefly
+        setTimeout(() => {
+            setIsAddingToCollection(null);
+            setShowCollections(false);
+        }, 1000);
+    } catch (error) {
+        console.error("Failed to add to collection", error);
+        setIsAddingToCollection(null);
+    }
+  };
+
+  const handleReadAloud = () => {
+    if ('speechSynthesis' in window) {
+      window.speechSynthesis.cancel(); // Stop any current speech
+      const utterance = new SpeechSynthesisUtterance(item.summary || item.content);
+      utterance.rate = 0.9;
+      window.speechSynthesis.speak(utterance);
+    } else {
+      alert("Text-to-speech is not supported in this browser.");
+    }
+  };
+
+  const getYouTubeEmbedUrl = (url: string) => {
+    const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|&v=)([^#&?]*).*/;
+    const match = url.match(regExp);
+    return (match && match[2].length === 11) ? `https://www.youtube.com/embed/${match[2]}` : null;
+  };
+
+  const ytEmbedUrl = getYouTubeEmbedUrl(item.url);
+
+  return (    <motion.div
       layout
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
       whileHover={{ scale: 1.02, y: -5 }}
       exit={{ opacity: 0, scale: 0.9 }}
       transition={{ duration: 0.2 }}
-      className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-2xl transition-all group relative"
+      className="bg-white dark:bg-gray-800 rounded-3xl shadow-sm border border-gray-100 dark:border-gray-700 overflow-hidden hover:shadow-2xl transition-all group relative hover-glow"
     >
       {/* Header */}
       <div className="p-4 flex items-center justify-between">
@@ -142,7 +185,16 @@ export function ItemCard({ item, onRemix, onUpdate, onDelete }: ItemCardProps) {
 
       {/* Media Preview */}
       <div className="relative aspect-square bg-gray-100 overflow-hidden">
-        {item.remix_url ? (
+        {ytEmbedUrl ? (
+            <iframe 
+                src={ytEmbedUrl} 
+                title="YouTube video player" 
+                frameBorder="0" 
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+                allowFullScreen
+                className="w-full h-full"
+            ></iframe>
+        ) : item.remix_url ? (
             <video 
                 src={item.remix_url} 
                 controls 
@@ -159,7 +211,7 @@ export function ItemCard({ item, onRemix, onUpdate, onDelete }: ItemCardProps) {
             referrerPolicy="no-referrer"
           />
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50">
+          <div className="w-full h-full flex flex-col items-center justify-center text-gray-400 bg-gray-50 dark:bg-gray-800">
             <ExternalLink size={48} className="mb-2 opacity-50" />
             <span className="text-xs uppercase tracking-widest opacity-50">External Link</span>
           </div>
@@ -312,8 +364,14 @@ export function ItemCard({ item, onRemix, onUpdate, onDelete }: ItemCardProps) {
             <button onClick={() => setShowNotes(!showNotes)} className="transition-colors">
                 <StickyNote size={22} className={item.notes ? 'text-indigo-500' : 'hover:text-indigo-500'} />
             </button>
+            <button onClick={() => setShowCollections(!showCollections)} className="transition-colors">
+                <FolderPlus size={22} className={showCollections ? 'text-indigo-500' : 'hover:text-indigo-500'} />
+            </button>
             <button onClick={handleCopyLink} className="transition-colors">
                 <Copy size={20} className="hover:text-green-500" />
+            </button>
+            <button onClick={handleReadAloud} className="transition-colors" title="Read Aloud">
+                <Volume2 size={20} className="hover:text-indigo-500" />
             </button>
         </div>
         <div className="flex items-center gap-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
@@ -321,6 +379,40 @@ export function ItemCard({ item, onRemix, onUpdate, onDelete }: ItemCardProps) {
             {item.view_count || 0} views
         </div>
       </div>
+
+      {/* Collections Area */}
+      <AnimatePresence>
+        {showCollections && (
+            <motion.div 
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="px-4 py-3 bg-indigo-50/50 dark:bg-indigo-900/10 border-b border-gray-50 dark:border-gray-700 overflow-hidden"
+            >
+                <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3">Add to Collection</p>
+                <div className="flex flex-wrap gap-2">
+                    {collections.map(col => (
+                        <button
+                            key={col.id}
+                            onClick={() => handleAddToCollection(col.id)}
+                            disabled={isAddingToCollection === col.id}
+                            className={`px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition-all flex items-center gap-2 ${
+                                isAddingToCollection === col.id
+                                    ? 'bg-green-500 text-white'
+                                    : `bg-${col.color}-100 dark:bg-${col.color}-900/30 text-${col.color}-600 dark:text-${col.color}-400 border border-${col.color}-200 dark:border-${col.color}-700/50 hover:scale-105`
+                            }`}
+                        >
+                            {isAddingToCollection === col.id ? <Check size={12} /> : <FolderPlus size={12} />}
+                            {col.name}
+                        </button>
+                    ))}
+                    {collections.length === 0 && (
+                        <p className="text-[10px] text-gray-400 italic">No collections yet. Create one in the Collections tab!</p>
+                    )}
+                </div>
+            </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Notes Area */}
       <AnimatePresence>

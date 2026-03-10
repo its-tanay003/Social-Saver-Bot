@@ -8,8 +8,50 @@
 
 @layer base {
   body {
-    @apply font-sans antialiased;
+    @apply font-sans antialiased bg-white dark:bg-gray-950 text-gray-900 dark:text-gray-100;
   }
+}
+
+/* Modern Transitions */
+.page-transition-enter {
+  opacity: 0;
+  transform: translateY(10px);
+}
+.page-transition-enter-active {
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity 400ms, transform 400ms;
+}
+
+/* Hover Effects */
+.hover-lift {
+  @apply transition-transform duration-300 hover:-translate-y-1 hover:shadow-lg;
+}
+
+.hover-glow {
+  @apply transition-all duration-300 hover:shadow-[0_0_20px_rgba(79,70,229,0.4)] dark:hover:shadow-[0_0_20px_rgba(99,102,241,0.2)];
+}
+
+/* Loading Shimmer */
+@keyframes shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+
+.shimmer {
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+  background-size: 1000px 100%;
+  animation: shimmer 2s infinite linear;
+}
+
+.dark .shimmer {
+  background: linear-gradient(90deg, #1f2937 25%, #374151 50%, #1f2937 75%);
+  background-size: 1000px 100%;
+}
+
+/* Smooth Scroll */
+html {
+  scroll-behavior: smooth;
 }
 
 .scrollbar-hide::-webkit-scrollbar {

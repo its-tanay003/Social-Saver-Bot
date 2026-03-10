@@ -395,6 +395,33 @@ export function ProfileView({ isOpen, onClose, currentTheme, onToggleTheme }: Pr
                     </button>
                   </div>
 
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+                      <Save size={16} />
+                      <span>Export Data</span>
+                    </div>
+                    <button 
+                      onClick={() => {
+                        fetch('/api/items')
+                          .then(res => res.json())
+                          .then(data => {
+                            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = 'digital_soul_export.json';
+                            document.body.appendChild(a);
+                            a.click();
+                            document.body.removeChild(a);
+                            URL.revokeObjectURL(url);
+                          });
+                      }}
+                      className="text-xs text-indigo-600 dark:text-indigo-400 font-medium hover:underline"
+                    >
+                      Download JSON
+                    </button>
+                  </div>
+
                   <hr className="border-gray-100 dark:border-gray-700" />
 
                   <button className="w-full flex items-center justify-center gap-2 text-red-500 text-sm font-medium hover:bg-red-50 dark:hover:bg-red-900/20 py-2 rounded-lg transition-colors">

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
+import io from 'socket.io-client';
 import { ItemCard } from './ItemCard';
 import { WhatsAppSimulator } from './WhatsAppSimulator';
 import { ChatAssistant } from './ChatAssistant';
@@ -10,7 +11,8 @@ import { InsightsPanel } from './InsightsPanel';
 import { CollectionsList } from './CollectionsList';
 import { ProfileView } from './ProfileView';
 import { DigestModal } from './DigestModal';
-import { Search, Filter, Loader2, Sparkles, X, Menu, Dice5, Trophy, Plus, LayoutGrid, Activity, Moon, Sun, User, Newspaper, Hash, Folder, Heart } from 'lucide-react';
+import { FeedbackModal } from './FeedbackModal';
+import { Search, Filter, Loader2, Sparkles, X, Menu, Dice5, Trophy, Plus, LayoutGrid, Activity, Moon, Sun, User, Newspaper, Hash, Folder, Heart, MessageSquare } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { themes } from '../lib/theme';
 import { TagManager } from './TagManager';
@@ -48,12 +50,14 @@ export function Dashboard() {
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [showGamification, setShowGamification] = useState(false);
   const [showQuickSave, setShowQuickSave] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
   const [showDigest, setShowDigest] = useState(false);
   const [digestContent, setDigestContent] = useState('');
   const [isGeneratingDigest, setIsGeneratingDigest] = useState(false);
   const [userStats, setUserStats] = useState<any>(null);
   const [profile, setProfile] = useState<any>(null);
+  const [activeUsers, setActiveUsers] = useState(1);
   const [currentTheme, setCurrentTheme] = useState('default');
   const [viewMode, setViewMode] = useState<'grid' | 'insights' | 'tags' | 'collections' | 'achievements'>('grid');
   const [showFavoritesOnly, setShowFavoritesOnly] = useState(false);
@@ -179,6 +183,26 @@ export function Dashboard() {
   }, [selectedCollectionId]);
 
   useEffect(() => {
+    const socket = io();
+    socket.on('presence:update', ({ count }) => setActiveUsers(count));
+    socket.on('item:created', (newItem) => {
+      setItems(prev => {
+        if (prev.find(i => i.id === newItem.id)) return prev;
+        return [newItem, ...prev];
+      });
+      confetti({
+        particleCount: 50,
+        spread: 70,
+        origin: { y: 0.6 },
+        colors: ['#4f46e5', '#9333ea']
+      });
+    });
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
+
+  useEffect(() => {
     fetchItems();
     fetchUserData();
     fetchExtras();
@@ -214,6 +238,24 @@ export function Dashboard() {
       }
     } catch (error) {
       console.error("Failed to save item", error);
+    }
+  };
+
+  const handleAddToCollection = async (itemId: number, collectionId: number) => {
+    try {
+        const res = await fetch(`/api/collections/${collectionId}/items`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ itemId })
+        });
+        if (res.ok) {
+            // If we are currently viewing this collection, refresh its items
+            if (selectedCollectionId === collectionId) {
+                fetchCollectionItems(collectionId);
+            }
+        }
+    } catch (error) {
+        console.error("Failed to add to collection", error);
     }
   };
 
@@ -515,16 +557,16 @@ export function Dashboard() {
             </div>
 
             <div className="flex items-center gap-3">
-                <div className="hidden xl:flex items-center gap-2 px-4 py-2 bg-white/80 dark:bg-gray-700/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 dark:border-gray-600/50 shadow-sm">
+                <div className="hidden xl:flex items-center gap-2 px-4 py-2 bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-sm hover-glow">
                     <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                    <span className="text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">AI Engine Active</span>
+                    <span className="text-[10px] font-black text-gray-500 dark:text-gray-400 uppercase tracking-widest">{activeUsers} Active Now</span>
                 </div>
 
                 <div className="h-8 w-[1px] bg-gray-200 dark:bg-gray-700 mx-2 hidden md:block" />
 
                 <button 
                     onClick={() => setShowQuickSave(true)}
-                    className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-200 dark:shadow-indigo-900/40 hover:bg-indigo-700 hover:shadow-indigo-300 transition-all active:scale-95 group"
+                    className="p-3 bg-indigo-600 text-white rounded-2xl shadow-lg shadow-indigo-200 dark:shadow-indigo-900/40 hover:bg-indigo-700 hover:shadow-indigo-300 transition-all active:scale-95 group hover-lift"
                     title="Quick Save"
                 >
                     <Plus size={20} className="group-hover:rotate-90 transition-transform duration-300" />
@@ -538,6 +580,14 @@ export function Dashboard() {
                 </button>
 
                 <button 
+                    onClick={() => setShowFeedback(true)}
+                    className="p-3 rounded-2xl bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 transition-all shadow-sm hover:border-indigo-200 group"
+                    title="Feedback"
+                >
+                    <MessageSquare size={20} className="group-hover:text-indigo-600 transition-colors" />
+                </button>
+
+                <button 
                     onClick={() => setShowProfile(true)}
                     className="p-1 rounded-2xl bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 shadow-sm hover:ring-4 hover:ring-indigo-500/10 hover:border-indigo-300 transition-all overflow-hidden w-12 h-12 group"
                 >
@@ -547,7 +597,7 @@ export function Dashboard() {
                 <button 
                     onClick={handleGenerateDigest}
                     disabled={isGeneratingDigest}
-                    className="hidden md:flex items-center gap-2 px-6 py-3 bg-gray-900 dark:bg-white dark:text-gray-900 text-white rounded-2xl text-sm font-black uppercase tracking-widest shadow-xl hover:bg-black dark:hover:bg-gray-100 hover:shadow-gray-300 transition-all active:scale-95 disabled:opacity-70"
+                    className="hidden md:flex items-center gap-2 px-6 py-3 bg-gray-900 dark:bg-white dark:text-gray-900 text-white rounded-2xl text-sm font-black uppercase tracking-widest shadow-xl hover:bg-black dark:hover:bg-gray-100 hover:shadow-gray-300 transition-all active:scale-95 disabled:opacity-70 hover-lift"
                 >
                     {isGeneratingDigest ? <Loader2 size={16} className="animate-spin" /> : <Newspaper size={16} />}
                     Rewind
@@ -578,7 +628,7 @@ export function Dashboard() {
                     <div className="flex flex-wrap gap-4 items-center">
                         <button 
                             onClick={handleRandomInspiration}
-                            className="px-10 py-5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-[2rem] text-sm font-black uppercase tracking-widest shadow-2xl shadow-indigo-200 dark:shadow-indigo-900/40 hover:scale-105 hover:shadow-indigo-300 transition-all active:scale-95 flex items-center gap-3"
+                            className="px-10 py-5 bg-gradient-to-r from-indigo-600 to-violet-600 text-white rounded-[2rem] text-sm font-black uppercase tracking-widest shadow-2xl shadow-indigo-200 dark:shadow-indigo-900/40 hover:scale-105 hover:shadow-indigo-300 transition-all active:scale-95 flex items-center gap-3 hover-glow"
                         >
                             <Dice5 size={20} /> Get Inspired
                         </button>
@@ -701,6 +751,7 @@ export function Dashboard() {
                             topTags={insights.topTags} 
                             topVibes={insights.topVibes} 
                             dailyTip={dailyTip} 
+                            activeUsers={activeUsers}
                             stats={{
                                 totalSaved: items.length,
                                 favoritesCount: items.filter(i => i.is_favorite).length,
@@ -752,12 +803,14 @@ export function Dashboard() {
                                         <div id={`item-${item.id}`} key={item.id}>
                                             <ItemCard 
                                                 item={item} 
+                                                collections={collections}
                                                 onRemix={() => {
                                                     setRemixItem(item);
                                                     setRemixPrompt(`Create a video based on: ${item.summary}`);
                                                 }} 
                                                 onUpdate={handleUpdateItem}
                                                 onDelete={handleDeleteItem}
+                                                onAddToCollection={handleAddToCollection}
                                             />
                                         </div>
                                     ))}
@@ -813,12 +866,14 @@ export function Dashboard() {
                                         <div id={`item-${item.id}`} key={item.id}>
                                             <ItemCard 
                                                 item={item} 
+                                                collections={collections}
                                                 onRemix={() => {
                                                     setRemixItem(item);
                                                     setRemixPrompt(`Create a video based on: ${item.summary}`);
                                                 }} 
                                                 onUpdate={handleUpdateItem}
                                                 onDelete={handleDeleteItem}
+                                                onAddToCollection={handleAddToCollection}
                                             />
                                         </div>
                                     ))}
@@ -859,6 +914,12 @@ export function Dashboard() {
         isOpen={showDigest} 
         onClose={() => setShowDigest(false)} 
         content={digestContent} 
+      />
+
+      {/* Feedback Modal */}
+      <FeedbackModal 
+        isOpen={showFeedback} 
+        onClose={() => setShowFeedback(false)} 
       />
 
       {/* Chat Assistant */}

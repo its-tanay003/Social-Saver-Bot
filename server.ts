@@ -1,5 +1,7 @@
 import express from "express";
 import { createServer as createViteServer } from "vite";
+import { createServer } from "http";
+import { Server } from "socket.io";
 import cors from "cors";
 import db from "./src/db/index.ts";
 import { analyzeContent, chatWithKnowledgeBase, generateDigest, findLocationOnMaps } from "./src/services/gemini.ts";
@@ -7,7 +9,23 @@ import { GoogleGenAI, ThinkingLevel } from "@google/genai";
 
 async function startServer() {
   const app = express();
+  const httpServer = createServer(app);
+  const io = new Server(httpServer, {
+    cors: { origin: "*" }
+  });
   const PORT = 3000;
+
+  let activeUsers = 0;
+
+  io.on("connection", (socket) => {
+    activeUsers++;
+    io.emit("presence:update", { count: activeUsers });
+
+    socket.on("disconnect", () => {
+      activeUsers--;
+      io.emit("presence:update", { count: activeUsers });
+    });
+  });
 
   app.use(express.json());
   app.use(cors());
@@ -188,6 +206,9 @@ async function startServer() {
       db.prepare("UPDATE user_stats SET items_saved = items_saved + 1, points = points + 10 WHERE id = 1").run();
       const newBadges = checkBadges(1);
 
+      const newItem = db.prepare("SELECT * FROM saved_items WHERE id = ?").get(info.lastInsertRowid);
+      io.emit("item:created", newItem);
+
       res.json({ success: true, id: info.lastInsertRowid, analysis, newBadges });
     } catch (error) {
       console.error(error);
@@ -227,6 +248,73 @@ async function startServer() {
       res.json({ success: true });
     } catch (error) {
       res.status(500).json({ error: "Failed to add to collection" });
+    }
+  });
+
+  app.post("/api/feedback", (req, res) => {
+    const { type, message, email } = req.body;
+    try {
+      db.prepare("INSERT INTO feedback (type, message, email) VALUES (?, ?, ?)").run(type, message, email);
+      res.json({ success: true });
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: "Failed to submit feedback" });
+    }
+  });
+
+  // --- Telegram Webhook Integration ---
+  app.post("/api/telegram/webhook", async (req, res) => {
+    try {
+      const { message } = req.body;
+      if (!message || !message.text) {
+        return res.sendStatus(200); // Acknowledge non-text messages
+      }
+
+      const text = message.text;
+      const chatId = message.chat.id;
+      
+      // Extract URL from text (simple regex)
+      const urlRegex = /(https?:\/\/[^\s]+)/g;
+      const urls = text.match(urlRegex);
+
+      if (urls && urls.length > 0) {
+        const url = urls[0];
+        
+        // Analyze with Gemini
+        const analysis = await analyzeContent(url, text);
+        
+        // Save to DB
+        const stmt = db.prepare(`
+          INSERT INTO saved_items (url, source, type, summary, tags, content, vibe, media_url)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        `);
+
+        const type = url.includes('instagram') ? 'social' : url.includes('youtube') ? 'video' : 'web';
+        const finalVibe = analysis.vibe;
+
+        const info = stmt.run(
+          url, 
+          'telegram', 
+          type, 
+          analysis.summary, 
+          JSON.stringify(analysis.tags), 
+          text,
+          finalVibe,
+          null
+        );
+
+        // Broadcast to connected clients
+        const newItem = db.prepare("SELECT * FROM saved_items WHERE id = ?").get(info.lastInsertRowid);
+        io.emit("item:created", newItem);
+
+        // In a real app, you would send a message back to Telegram here using their API
+        console.log(`Saved item from Telegram: ${url}`);
+      }
+
+      res.sendStatus(200);
+    } catch (error) {
+      console.error("Telegram Webhook Error:", error);
+      res.sendStatus(500);
     }
   });
 
@@ -500,7 +588,7 @@ async function startServer() {
     app.use(vite.middlewares);
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
+  httpServer.listen(PORT, "0.0.0.0", () => {
     console.log(`Server running on http://localhost:${PORT}`);
   });
 }
